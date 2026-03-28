@@ -20,7 +20,7 @@
   {
     "id": "powermenu",
     "name": "PowerMenu",
-    "description": "Existing widget in PowerMenu",
+    "description": "Widget for PowerMenu in NiriWM modify the script for your own",
     "author": "usoy",
     "download_url": "https://github.com/usoy410/Linux_Eww_Rainmeter/archive/refs/heads/master.zip",
     "folder_name": "PowerMenu",
