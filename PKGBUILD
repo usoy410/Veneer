@@ -14,7 +14,7 @@ md5sums=('SKIP')
 build() {
   cd "$srcdir/veneer"
   npm install
-  npm run tauri build -- --bundles ""
+  npm run tauri build -- --no-bundle
 }
 
 package() {
