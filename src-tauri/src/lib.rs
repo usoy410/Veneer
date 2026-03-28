@@ -164,7 +164,9 @@ fn link_scss(scss_path: &PathBuf, config_path: &PathBuf, main_scss: &PathBuf) ->
     }
 
     // Trigger reload so Eww sees the new include
-    let _ = Command::new("eww").arg("reload").status();
+    let _ = Command::new("eww")
+        .args(["--config", config_path.to_str().unwrap(), "reload"])
+        .status();
     
     Ok(())
 }
