@@ -1,7 +1,9 @@
 use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::{self, Manager};
+use tempfile::Builder;
 
 #[tauri::command]
 fn check_eww() -> bool {
@@ -11,13 +13,20 @@ fn check_eww() -> bool {
 #[tauri::command]
 fn get_eww_config_path() -> String {
     let home = std::env::var("HOME").unwrap_or_default();
-    format!("{}/.config/eww", home)
+    let path = format!("{}/.config/veneer/eww", home);
+    // Ensure the directory exists
+    let _ = fs::create_dir_all(&path);
+    path
 }
 
 #[tauri::command]
 fn run_eww_command(args: Vec<String>) -> Result<String, String> {
+    let config_path = get_eww_config_path();
+    let mut final_args = vec!["--config".to_string(), config_path];
+    final_args.extend(args);
+    
     let output = Command::new("eww")
-        .args(args)
+        .args(final_args)
         .output()
         .map_err(|e| e.to_string())?;
     
@@ -138,7 +147,9 @@ fn ensure_widget_linked(_name: String, yuck_path: String) -> Result<(), String> 
     }
 
     // Trigger reload so Eww sees the new include
-    let _ = Command::new("eww").arg("reload").status();
+    let _ = Command::new("eww")
+        .args(["--config", &get_eww_config_path(), "reload"])
+        .status();
     
     Ok(())
 }
@@ -186,7 +197,9 @@ fn update_widget_geometry(yuck_path: String, x: i32, y: i32, width: i32, height:
     fs::write(&yuck_path, content).map_err(|e| e.to_string())?;
     
     // Reload eww
-    let _ = Command::new("eww").arg("reload").status();
+    let _ = Command::new("eww")
+        .args(["--config", &get_eww_config_path(), "reload"])
+        .status();
     
     Ok(())
 }
@@ -209,6 +222,91 @@ struct Geometry {
     y: i32,
     width: i32,
     height: i32,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct CommunityWidget {
+    id: String,
+    name: String,
+    description: String,
+    author: String,
+    download_url: String,
+    preview_url: String,
+    folder_name: Option<String>, // Added support for subfolders
+}
+
+#[tauri::command]
+fn fetch_community_widgets() -> Result<Vec<CommunityWidget>, String> {
+    let url = "https://raw.githubusercontent.com/usoy410/Veneer/main/community/registry.json";
+    let response = reqwest::blocking::get(url).map_err(|e| e.to_string())?;
+    let widgets: Vec<CommunityWidget> = response.json().map_err(|e| e.to_string())?;
+    Ok(widgets)
+}
+
+#[tauri::command]
+fn install_community_widget(download_url: String, folder_name: Option<String>) -> Result<(), String> {
+    let response = reqwest::blocking::get(download_url).map_err(|e| e.to_string())?;
+    let bytes = response.bytes().map_err(|e| e.to_string())?;
+    
+    let temp_dir = Builder::new().prefix("veneer-widget").tempdir().map_err(|e| e.to_string())?;
+    let zip_path = temp_dir.path().join("widget.zip");
+    fs::write(&zip_path, bytes).map_err(|e| e.to_string())?;
+    
+    let extract_dir = temp_dir.path().join("extracted");
+    fs::create_dir_all(&extract_dir).map_err(|e| e.to_string())?;
+    
+    let file = fs::File::open(&zip_path).map_err(|e| e.to_string())?;
+    zip_extract::extract(file, &extract_dir, true).map_err(|e| e.to_string())?;
+    
+    // Find the widget folder
+    // GitHub zips have a root like "repo-main/"
+    let root_entries = fs::read_dir(&extract_dir).map_err(|e| e.to_string())?;
+    for root_entry in root_entries {
+        let root_entry = root_entry.map_err(|e| e.to_string())?;
+        if root_entry.path().is_dir() {
+            let search_dir = if let Some(ref f_name) = folder_name {
+                root_entry.path().join(f_name)
+            } else {
+                // If no folder_name, look for the first child folder of the root
+                let children = fs::read_dir(root_entry.path()).map_err(|e| e.to_string())?;
+                let mut first_child = None;
+                for child in children {
+                    let child = child.map_err(|e| e.to_string())?;
+                    if child.path().is_dir() {
+                        first_child = Some(child.path());
+                        break;
+                    }
+                }
+                first_child.ok_or("Could not find any widget directory in zip")?
+            };
+
+            if !search_dir.exists() {
+                return Err(format!("Requested folder '{}' not found in zip", folder_name.unwrap_or_default()));
+            }
+
+            let widget_name = search_dir.file_name().unwrap().to_string_lossy().to_string();
+            let config_path = PathBuf::from(get_eww_config_path());
+            let dest = config_path.join("widgets").join(&widget_name);
+            
+            fs::create_dir_all(dest.parent().unwrap()).map_err(|e| e.to_string())?;
+            copy_dir_all(&search_dir, &dest).map_err(|e| e.to_string())?;
+            
+            // Try to link it automatically
+            let yuck_files: Vec<_> = fs::read_dir(&dest).map_err(|e| e.to_string())?
+                .filter_map(|e| e.ok())
+                .map(|e| e.path())
+                .filter(|p| p.extension().map_or(false, |ext| ext == "yuck"))
+                .collect();
+                
+            if let Some(first_yuck) = yuck_files.first() {
+                let _ = ensure_widget_linked(widget_name, first_yuck.to_string_lossy().to_string());
+            }
+            
+            return Ok(());
+        }
+    }
+    
+    Err("Could not find root directory in zip".to_string())
 }
 
 #[tauri::command]
@@ -334,7 +432,7 @@ fn read_widget_yuck(yuck_path: String) -> Result<String, String> {
 #[tauri::command]
 fn reload_eww() -> Result<(), String> {
     Command::new("eww")
-        .arg("reload")
+        .args(["--config", &get_eww_config_path(), "reload"])
         .status()
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -347,7 +445,7 @@ fn restart_eww() -> Result<(), String> {
     
     // Start daemon
     Command::new("eww")
-        .arg("daemon")
+        .args(["--config", &get_eww_config_path(), "daemon"])
         .spawn()
         .map_err(|e| e.to_string())?;
     
@@ -380,7 +478,9 @@ fn write_widget_yuck(yuck_path: String, content: String) -> Result<(), String> {
     let path = PathBuf::from(yuck_path);
     fs::write(path, content).map_err(|e| e.to_string())?;
     // Trigger reload
-    let _ = Command::new("eww").arg("reload").status();
+    let _ = Command::new("eww")
+        .args(["--config", &get_eww_config_path(), "reload"])
+        .status();
     Ok(())
 }
 
@@ -413,7 +513,9 @@ fn write_widget_scss(yuck_path: String, content: String) -> Result<(), String> {
     let scss_path = resolve_scss_path(&yuck_path)?;
     fs::write(scss_path, content).map_err(|e| e.to_string())?;
     // Trigger reload
-    let _ = Command::new("eww").arg("reload").status();
+    let _ = Command::new("eww")
+        .args(["--config", &get_eww_config_path(), "reload"])
+        .status();
     Ok(())
 }
 
@@ -475,7 +577,9 @@ pub fn run() {
             write_widget_yuck,
             read_widget_scss,
             write_widget_scss,
-            upload_widget
+            upload_widget,
+            fetch_community_widgets,
+            install_community_widget
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

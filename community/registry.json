@@ -1,0 +1,20 @@
+[
+  {
+    "id": "cava-visualizer",
+    "name": "Cava Visualizer",
+    "description": "A powerful audio visualizer for your desktop.",
+    "author": "usoy",
+    "download_url": "https://github.com/usoy410/Linux_Eww_Rainmeter/archive/refs/heads/master.zip",
+    "folder_name": "CavaVisualizer",
+    "preview_url": "https://raw.githubusercontent.com/usoy410/Linux_Eww_Rainmeter/refs/heads/master/CavaVisualizer/preview.png"
+  },
+  {
+    "id": "clock-rainmeter",
+    "name": "Clock Rainmeter",
+    "description": "A beautiful, Rainmeter-style clock widget.",
+    "author": "usoy",
+    "download_url": "https://github.com/usoy410/Linux_Eww_Rainmeter/archive/refs/heads/master.zip",
+    "folder_name": "ClockRainmeter",
+    "preview_url": "https://raw.githubusercontent.com/usoy410/Linux_Eww_Rainmeter/refs/heads/master/ClockRainmeter/preview.png"
+  }
+]

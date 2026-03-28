@@ -4,8 +4,9 @@ import { GlassCard } from "./components/GlassCard";
 import { invoke } from "@tauri-apps/api/core";
 import { currentMonitor } from "@tauri-apps/api/window";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Square, Settings2, Terminal, Info, RefreshCw, CheckCircle, Save, Code, Library, Plus, Settings } from "lucide-react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { Play, Square, Settings2, Terminal, Info, RefreshCw, CheckCircle, Save, Code, Plus, Settings, Cloud, Download, User, Globe } from "lucide-react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { cn } from "./lib/utils";
 import { debounce } from "./lib/debounce";
 
@@ -24,6 +25,16 @@ interface Widget {
   windows: string[];
 }
 
+interface CommunityWidget {
+  id: string;
+  name: string;
+  description: string;
+  author: string;
+  download_url: string;
+  preview_url: string;
+  folder_name?: string;
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isEwwReady, setIsEwwReady] = useState(false);
@@ -39,6 +50,10 @@ function App() {
   const [isSavingScss, setIsSavingScss] = useState(false);
   const [editorTab, setEditorTab] = useState<'yuck' | 'scss'>('yuck');
   const [initialGeometries, setInitialGeometries] = useState<Record<string, Widget['geometry']>>({});
+  const [libraryView, setLibraryView] = useState<'local' | 'community'>('local');
+  const [communityWidgets, setCommunityWidgets] = useState<CommunityWidget[]>([]);
+  const [isFetchingCommunity, setIsFetchingCommunity] = useState(false);
+  const [installingId, setInstallingId] = useState<string | null>(null);
   const constraintsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -243,7 +258,7 @@ function App() {
 
   const uploadWidget = async () => {
     try {
-      const selected = await open({
+      const selected = await openDialog({
         directory: true,
         multiple: false,
         title: 'Select Widget Folder'
@@ -261,6 +276,72 @@ function App() {
       console.error("Failed to upload widget:", err);
     }
   };
+
+  const fetchCommunityWidgets = async () => {
+    setIsFetchingCommunity(true);
+    try {
+      const result = await invoke("fetch_community_widgets") as CommunityWidget[];
+      setCommunityWidgets(result);
+    } catch (err) {
+      console.error("Failed to fetch community widgets:", err);
+    } finally {
+      setIsFetchingCommunity(false);
+    }
+  };
+
+  const installCommunityWidget = async (widget: CommunityWidget) => {
+    setInstallingId(widget.id);
+    try {
+      await invoke("install_community_widget", { 
+        downloadUrl: widget.download_url,
+        folderName: widget.folder_name || null
+      });
+      
+      // Refresh local widgets
+      const scannedWidgets = await invoke("scan_widgets") as Widget[];
+      setWidgets(scannedWidgets);
+      
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      setLibraryView('local'); // Switch back to see the new widget
+    } catch (err) {
+      console.error("Failed to install widget:", err);
+      alert(`Installation failed: ${err}`);
+    } finally {
+      setInstallingId(null);
+    }
+  };
+
+  const submitWidget = async (widget: Widget) => {
+    const registrySnippet = {
+      id: widget.id,
+      name: widget.name,
+      description: widget.description,
+      author: "YourName",
+      download_url: "https://github.com/your-username/your-repo/archive/refs/heads/main.zip",
+      preview_url: "https://raw.githubusercontent.com/your-username/your-repo/main/preview.png"
+    };
+
+    const body = encodeURIComponent(
+      `## Widget Submission\n\n` +
+      `Please add my widget to the registry!\n\n` +
+      `\`\`\`json\n${JSON.stringify(registrySnippet, null, 2)}\n\`\`\`\n\n` +
+      `**IMPORTANT:** Please provide a valid \`preview_url\` (direct link to a screenshot) so users can see what they're installing!`
+    );
+
+    const url = `https://github.com/usoy410/Veneer/issues/new?title=Widget+Submission:+${widget.name}&body=${body}`;
+    try {
+      await openUrl(url);
+    } catch (err) {
+      console.error("Failed to open submission URL:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'library' && libraryView === 'community' && communityWidgets.length === 0) {
+      fetchCommunityWidgets();
+    }
+  }, [activeTab, libraryView]);
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans selection:bg-blue-500/30">
@@ -339,8 +420,16 @@ function App() {
                       <button
                         onClick={() => { setSelectedWidget(widget); setActiveTab('customizer'); }}
                         className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center border border-white/5 transition-all"
+                        title="Customize"
                       >
                         <Settings2 className="w-5 h-5 text-white/60" />
+                      </button>
+                      <button
+                        onClick={() => submitWidget(widget)}
+                        className="w-12 h-12 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30 transition-all group"
+                        title="Submit to Community"
+                      >
+                        <Cloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
                       </button>
                     </div>
                   </GlassCard>
@@ -362,18 +451,122 @@ function App() {
                   <h1 className="text-4xl font-black tracking-tight mb-2 bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent italic uppercase">Library</h1>
                   <p className="text-white/40 font-medium">Manage your custom widget collection.</p>
                 </div>
-                <button
-                  onClick={uploadWidget}
-                  className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center border border-white/5 transition-all group"
-                  title="Upload Widget"
-                >
-                  <Plus className="w-5 h-5 text-white/60 group-hover:text-white" />
-                </button>
+                <div className="flex gap-4">
+                  <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
+                    <button 
+                      onClick={() => setLibraryView('local')}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
+                        libraryView === 'local' ? "bg-white/10 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                      )}
+                    >
+                      <Terminal className="w-4 h-4" />
+                      Local
+                    </button>
+                    <button 
+                      onClick={() => setLibraryView('community')}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
+                        libraryView === 'community' ? "bg-white/10 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                      )}
+                    >
+                      <Globe className="w-4 h-4" />
+                      Community
+                    </button>
+                  </div>
+                  <button
+                    onClick={uploadWidget}
+                    className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center border border-white/5 transition-all group"
+                    title="Upload Widget"
+                  >
+                    <Plus className="w-5 h-5 text-white/60 group-hover:text-white" />
+                  </button>
+                </div>
               </header>
 
-              <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                <p className="text-white/20 font-black italic uppercase tracking-widest text-2xl">There is nothing here</p>
-              </div>
+              {libraryView === 'local' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {widgets.length > 0 ? (
+                    widgets.map((widget, i) => (
+                      <GlassCard key={widget.id} delay={i * 0.1}>
+                        <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
+                          <Terminal className="text-blue-400 w-6 h-6" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">{widget.name}</h3>
+                        <p className="text-sm text-white/40 mb-6 line-clamp-2">{widget.description}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setSelectedWidget(widget); setActiveTab('customizer'); }}
+                            className="flex-1 bg-white/5 hover:bg-white/10 text-white/60 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all border border-white/5"
+                          >
+                            <Settings2 className="w-4 h-4" />
+                            Customize
+                          </button>
+                          <button
+                            onClick={() => submitWidget(widget)}
+                            className="w-12 h-12 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30 transition-all group"
+                            title="Submit to Community"
+                          >
+                            <Cloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                          </button>
+                        </div>
+                      </GlassCard>
+                    ))
+                  ) : (
+                    <div className="col-span-full flex flex-col items-center justify-center h-40 text-center">
+                      <p className="text-white/20 font-black italic uppercase tracking-widest text-xl">No local widgets found</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {isFetchingCommunity ? (
+                    <div className="flex flex-col items-center justify-center h-40 gap-4">
+                      <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+                      <p className="text-white/40 font-bold uppercase tracking-widest text-xs">Fetching Registry...</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {communityWidgets.map((widget, i) => (
+                        <GlassCard key={widget.id} delay={i * 0.1}>
+                          <div className="aspect-video rounded-xl bg-black/40 mb-4 overflow-hidden border border-white/5 group relative">
+                            {widget.preview_url ? (
+                              <img src={widget.preview_url} alt={widget.name} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center pattern-dots opacity-20">
+                                <Cloud className="w-12 h-12 text-white" />
+                              </div>
+                            )}
+                            <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-white/60 flex items-center gap-1 border border-white/10">
+                              <User className="w-3 h-3" />
+                              {widget.author}
+                            </div>
+                          </div>
+                          <h3 className="text-xl font-bold mb-2">{widget.name}</h3>
+                          <p className="text-sm text-white/40 mb-6 line-clamp-2">{widget.description}</p>
+                          <button
+                            onClick={() => installCommunityWidget(widget)}
+                            disabled={installingId === widget.id}
+                            className={cn(
+                              "w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50",
+                              installingId === widget.id 
+                                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                : "bg-blue-600 hover:bg-blue-500 text-white"
+                            )}
+                          >
+                            {installingId === widget.id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
+                            {installingId === widget.id ? 'INSTALLING...' : 'INSTALL WIDGET'}
+                          </button>
+                        </GlassCard>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
 
