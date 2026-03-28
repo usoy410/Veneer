@@ -393,7 +393,7 @@ function App() {
             >
               <header className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-4xl font-black tracking-tight mb-2 bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent italic">DASHBOARD</h1>
+                  <h1 className="text-4xl font-black tracking-tight mb-2 text-white">DASHBOARD</h1>
                   <p className="text-white/40 font-medium">Manage and monitor your active widgets.</p>
                 </div>
                 <div className="flex gap-4">
@@ -404,7 +404,7 @@ function App() {
                       "flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-bold transition-all active:scale-95 disabled:opacity-50",
                       showSuccess
                         ? "bg-green-500/20 text-green-400 border-green-500/30"
-                        : "bg-white/5 hover:bg-white/10 text-white/60 border-white/5"
+                        : "bg-[#1e1e1e] hover:bg-[#2c2c2c] text-gray-300 border border-[#2c2c2c]"
                     )}
                   >
                     {isRestarting ? (
@@ -428,7 +428,7 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-10">
                 {widgets.map((widget, i) => (
                   <GlassCard key={widget.id} delay={i * 0.1}>
-                    <div className="relative h-48 bg-black/40 overflow-hidden rounded-xl mb-4 group">
+                    <div className="relative h-48 bg-[#121212] overflow-hidden rounded-xl mb-4 group shadow-sm">
                       {widget.preview ? (
                         <img 
                           src={convertFileSrc(widget.preview)} 
@@ -437,7 +437,7 @@ function App() {
                           onClick={() => setMaximizedPreview(convertFileSrc(widget.preview!))}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                        <div className="w-full h-full flex items-center justify-center bg-[#18181b]">
                           <Terminal className="w-12 h-12 text-white/20" />
                         </div>
                       )}
@@ -445,9 +445,9 @@ function App() {
                       <div className="absolute top-4 right-4 flex gap-2">
                         <button
                           onClick={() => toggleWidget(widget)}
-                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border backdrop-blur-md transition-all ${widget.status === 'active'
-                              ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                              : 'bg-black/60 text-white/30 border-white/10'
+                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${widget.status === 'active'
+                              ? 'bg-blue-600 text-white border-transparent shadow-sm'
+                              : 'bg-[#2c2c2c] text-gray-400 border-transparent'
                             }`}>
                           {widget.status}
                         </button>
@@ -458,14 +458,14 @@ function App() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => toggleWidget(widget)}
-                        className="flex-1 bg-white hover:bg-white/90 text-black py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95"
                       >
                         {widget.status === 'active' ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                         {widget.status === 'active' ? 'Stop' : 'Start'}
                       </button>
                       <button
                         onClick={() => { setSelectedWidget(widget); setActiveTab('customizer'); }}
-                        className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center border border-white/5 transition-all"
+                        className="w-12 h-12 bg-[#2c2c2c] hover:bg-[#3d3d3d] rounded-xl flex items-center justify-center border border-transparent transition-all"
                         title="Customize"
                       >
                         <Settings2 className="w-5 h-5 text-white/60" />
@@ -494,16 +494,16 @@ function App() {
             >
               <header className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-4xl font-black tracking-tight mb-2 bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent italic uppercase">Library</h1>
+                  <h1 className="text-4xl font-black tracking-tight mb-2 text-white uppercase">Library</h1>
                   <p className="text-white/40 font-medium">Manage your custom widget collection.</p>
                 </div>
                 <div className="flex gap-4">
-                  <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
+                  <div className="flex bg-[#1e1e1e] rounded-xl p-1 border border-[#2c2c2c]">
                     <button 
                       onClick={() => setLibraryView('local')}
                       className={cn(
                         "px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
-                        libraryView === 'local' ? "bg-white/10 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        libraryView === 'local' ? "bg-[#2c2c2c] text-white shadow-sm" : "text-gray-400 hover:text-white"
                       )}
                     >
                       <Terminal className="w-4 h-4" />
@@ -513,7 +513,7 @@ function App() {
                       onClick={() => setLibraryView('community')}
                       className={cn(
                         "px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2",
-                        libraryView === 'community' ? "bg-white/10 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                        libraryView === 'community' ? "bg-[#2c2c2c] text-white shadow-sm" : "text-gray-400 hover:text-white"
                       )}
                     >
                       <Globe className="w-4 h-4" />
@@ -522,7 +522,7 @@ function App() {
                   </div>
                   <button
                     onClick={uploadWidget}
-                    className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center border border-white/5 transition-all group"
+                    className="w-12 h-12 bg-[#2c2c2c] hover:bg-[#3d3d3d] rounded-xl flex items-center justify-center border-transparent transition-all group"
                     title="Upload Widget"
                   >
                     <Plus className="w-5 h-5 text-white/60 group-hover:text-white" />
@@ -535,7 +535,7 @@ function App() {
                   {widgets.length > 0 ? (
                     widgets.map((widget, i) => (
                       <GlassCard key={widget.id} delay={i * 0.1}>
-                        <div className="relative h-48 bg-black/40 overflow-hidden rounded-xl mb-4">
+                        <div className="relative h-48 bg-[#121212] overflow-hidden rounded-xl mb-4 shadow-sm">
                           {widget.preview ? (
                             <img 
                               src={convertFileSrc(widget.preview)} 
@@ -554,7 +554,7 @@ function App() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => { setSelectedWidget(widget); setActiveTab('customizer'); }}
-                            className="flex-1 bg-white/5 hover:bg-white/10 text-white/60 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all border border-white/5"
+                            className="flex-1 bg-[#2c2c2c] hover:bg-[#3d3d3d] text-gray-300 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all border-transparent"
                           >
                             <Settings2 className="w-4 h-4" />
                             Customize
@@ -597,7 +597,7 @@ function App() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {communityWidgets.map((widget, i) => (
                         <GlassCard key={widget.id} delay={i * 0.1}>
-                          <div className="aspect-video rounded-xl bg-black/40 mb-4 overflow-hidden border border-white/5 group relative">
+                          <div className="aspect-video rounded-xl bg-[#121212] mb-4 overflow-hidden group relative shadow-sm">
                             {widget.preview_url ? (
                               <img 
                                 src={widget.preview_url} 
@@ -606,13 +606,13 @@ function App() {
                                 onClick={() => setMaximizedPreview(widget.preview_url)}
                               />
                             ) : (
-                              <div className="relative h-40 bg-black/40 overflow-hidden">
-                                <div className="w-full h-full flex items-center justify-center border-b border-white/5 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                              <div className="relative h-40 bg-[#121212] overflow-hidden">
+                                <div className="w-full h-full flex items-center justify-center bg-[#18181b]">
                                   <Code className="w-10 h-10 text-white/20" />
                                 </div>
                               </div>
                             )}
-                            <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-white/60 flex items-center gap-1 border border-white/10">
+                            <div className="absolute top-2 right-2 bg-[#1e1e1e] px-2 py-1 rounded text-[10px] font-black text-gray-300 flex items-center gap-1 shadow-sm border border-[#2c2c2c]">
                               <User className="w-3 h-3" />
                               {widget.author}
                             </div>
@@ -659,7 +659,7 @@ function App() {
               className="space-y-8"
             >
               <header>
-                <h1 className="text-4xl font-black tracking-tight mb-2 bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent italic">CUSTOMIZER</h1>
+                <h1 className="text-4xl font-black tracking-tight mb-2 text-white">CUSTOMIZER</h1>
                 <p className="text-white/40 font-medium">Fine-tune widget geometry and appearance.</p>
               </header>
 
@@ -675,8 +675,8 @@ function App() {
                           className={cn(
                             "w-full text-left px-4 py-3 rounded-xl transition-all border",
                             selectedWidget?.id === w.id
-                              ? "bg-blue-500/10 border-blue-500/30 text-white"
-                              : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10"
+                              ? "bg-blue-600 border-transparent text-white"
+                              : "bg-[#2c2c2c] border-transparent text-gray-400 hover:bg-[#3d3d3d] hover:text-white"
                           )}
                         >
                           <div className="font-bold">{w.name}</div>
@@ -727,7 +727,7 @@ function App() {
                     </div>
                     <div
                       ref={constraintsRef}
-                      className="aspect-video rounded-2xl bg-black/40 border border-white/5 relative overflow-hidden pattern-dots"
+                      className="aspect-video rounded-xl bg-[#121212] relative overflow-hidden pattern-dots shadow-sm"
                     >
                       {selectedWidget && (
                         <motion.div
@@ -767,12 +767,12 @@ function App() {
                     <div className="flex justify-between items-center mb-6">
                       <div className="flex items-center gap-4">
                         <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Direct Edit</h3>
-                        <div className="flex bg-white/5 rounded-lg p-1 border border-white/5">
+                        <div className="flex bg-[#121212] rounded-lg p-1 border border-[#2c2c2c]">
                           <button 
                             onClick={() => setEditorTab('yuck')}
                             className={cn(
                               "px-3 py-1 rounded-md text-[10px] font-black transition-all",
-                              editorTab === 'yuck' ? "bg-blue-500 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                              editorTab === 'yuck' ? "bg-[#2563eb] text-white shadow-sm" : "text-gray-400 hover:text-white"
                             )}
                           >
                             .YUCK
@@ -781,7 +781,7 @@ function App() {
                             onClick={() => setEditorTab('scss')}
                             className={cn(
                               "px-3 py-1 rounded-md text-[10px] font-black transition-all",
-                              editorTab === 'scss' ? "bg-blue-500 text-white shadow-lg" : "text-white/40 hover:text-white/60"
+                              editorTab === 'scss' ? "bg-[#2563eb] text-white shadow-sm" : "text-gray-400 hover:text-white"
                             )}
                           >
                             .SCSS
@@ -796,7 +796,7 @@ function App() {
                       <textarea
                         value={editorTab === 'yuck' ? yuckContent : scssContent}
                         onChange={(e) => editorTab === 'yuck' ? setYuckContent(e.target.value) : setScssContent(e.target.value)}
-                        className="w-full h-full min-h-[300px] bg-black/40 border border-white/5 rounded-xl p-4 text-sm text-blue-100/80 outline-none focus:border-blue-500/30 transition-all resize-none custom-scrollbar"
+                        className="w-full h-full min-h-[300px] bg-[#121212] border border-[#2c2c2c] rounded-xl p-4 text-sm text-blue-100/80 outline-none focus:border-blue-600 transition-all resize-none custom-scrollbar"
                         placeholder={editorTab === 'yuck' ? "; Widget code goes here..." : "// Styles go here..."}
                       />
                     </div>
@@ -804,7 +804,7 @@ function App() {
                       <button
                         onClick={editorTab === 'yuck' ? saveYuck : saveScss}
                         disabled={editorTab === 'yuck' ? isSavingYuck : isSavingScss}
-                        className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 border border-white/5 px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
+                        className="flex items-center gap-2 bg-[#2c2c2c] hover:bg-[#3d3d3d] text-gray-300 border border-transparent px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
                       >
                         { (editorTab === 'yuck' ? isSavingYuck : isSavingScss) ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Code className="w-4 h-4" />}
                         Save {editorTab === 'yuck' ? 'Source' : 'Styles'}
@@ -826,14 +826,14 @@ function App() {
             >
               <header className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-4xl font-black tracking-tight mb-2 bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent italic uppercase">Settings</h1>
+                  <h1 className="text-4xl font-black tracking-tight mb-2 text-white uppercase">Settings</h1>
                   <p className="text-white/40 font-medium">Configure your widget manager experience.</p>
                 </div>
                 <Settings className="w-10 h-10 text-white/10 animate-[spin_10s_linear_infinite]" />
               </header>
 
               <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                <p className="text-white/20 font-black italic uppercase tracking-widest text-2xl">Coming Soon</p>
+                <p className="text-gray-500 font-bold uppercase tracking-widest text-2xl">Coming Soon</p>
               </div>
             </motion.div>
           )}
@@ -846,14 +846,14 @@ function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMaximizedPreview(null)}
-              className="fixed inset-0 z-[100] flex items-center justify-center p-8 bg-black/80 backdrop-blur-xl cursor-zoom-out"
+              className="fixed inset-0 z-[100] flex items-center justify-center p-8 bg-[#121212]/90 cursor-zoom-out"
             >
               <motion.button
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0, opacity: 0 }}
                 onClick={() => setMaximizedPreview(null)}
-                className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center border border-white/10 transition-all z-[110]"
+                className="absolute top-8 right-8 w-12 h-12 bg-[#2c2c2c] hover:bg-[#3d3d3d] rounded-full flex items-center justify-center border-transparent transition-all z-[110]"
               >
                 <X className="w-6 h-6 text-white" />
               </motion.button>
