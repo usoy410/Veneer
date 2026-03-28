@@ -1,8 +1,7 @@
 use std::fs;
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tauri::{self, Manager};
+use tauri;
 use tempfile::Builder;
 
 #[tauri::command]
@@ -214,6 +213,7 @@ struct WidgetInfo {
     yuck_path: String, // Added path to the .yuck file
     geometry: Geometry,
     windows: Vec<String>, // Added list of window names
+    preview: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -237,10 +237,48 @@ struct CommunityWidget {
 
 #[tauri::command]
 fn fetch_community_widgets() -> Result<Vec<CommunityWidget>, String> {
-    let url = "https://raw.githubusercontent.com/usoy410/Veneer/main/community/registry.json";
+    let url = "https://raw.githubusercontent.com/usoy410/Veneer/master/community/registry.json";
     let response = reqwest::blocking::get(url).map_err(|e| e.to_string())?;
     let widgets: Vec<CommunityWidget> = response.json().map_err(|e| e.to_string())?;
     Ok(widgets)
+}
+
+// Helper to find a folder by name recursively
+fn find_folder_recursive(path: &Path, target_name: &str) -> Option<PathBuf> {
+    if path.is_dir() {
+        if path.file_name()?.to_string_lossy() == target_name {
+            return Some(path.to_path_buf());
+        }
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                if let Some(found) = find_folder_recursive(&entry.path(), target_name) {
+                    return Some(found);
+                }
+            }
+        }
+    }
+    None
+}
+
+// Helper to find the first folder containing a .yuck file
+fn find_widget_folder(path: &Path) -> Option<PathBuf> {
+    if path.is_dir() {
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                if entry.path().is_file() && entry.path().extension().map_or(false, |ext| ext == "yuck") {
+                    return Some(path.to_path_buf());
+                }
+            }
+        }
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                if let Some(found) = find_widget_folder(&entry.path()) {
+                    return Some(found);
+                }
+            }
+        }
+    }
+    None
 }
 
 #[tauri::command]
@@ -258,55 +296,31 @@ fn install_community_widget(download_url: String, folder_name: Option<String>) -
     let file = fs::File::open(&zip_path).map_err(|e| e.to_string())?;
     zip_extract::extract(file, &extract_dir, true).map_err(|e| e.to_string())?;
     
-    // Find the widget folder
-    // GitHub zips have a root like "repo-main/"
-    let root_entries = fs::read_dir(&extract_dir).map_err(|e| e.to_string())?;
-    for root_entry in root_entries {
-        let root_entry = root_entry.map_err(|e| e.to_string())?;
-        if root_entry.path().is_dir() {
-            let search_dir = if let Some(ref f_name) = folder_name {
-                root_entry.path().join(f_name)
-            } else {
-                // If no folder_name, look for the first child folder of the root
-                let children = fs::read_dir(root_entry.path()).map_err(|e| e.to_string())?;
-                let mut first_child = None;
-                for child in children {
-                    let child = child.map_err(|e| e.to_string())?;
-                    if child.path().is_dir() {
-                        first_child = Some(child.path());
-                        break;
-                    }
-                }
-                first_child.ok_or("Could not find any widget directory in zip")?
-            };
+    let search_dir = if let Some(ref f_name) = folder_name {
+        find_folder_recursive(&extract_dir, f_name)
+    } else {
+        find_widget_folder(&extract_dir)
+    }.ok_or_else(|| format!("Could not find widget folder '{}' in zip", folder_name.unwrap_or_default()))?;
 
-            if !search_dir.exists() {
-                return Err(format!("Requested folder '{}' not found in zip", folder_name.unwrap_or_default()));
-            }
-
-            let widget_name = search_dir.file_name().unwrap().to_string_lossy().to_string();
-            let config_path = PathBuf::from(get_eww_config_path());
-            let dest = config_path.join("widgets").join(&widget_name);
-            
-            fs::create_dir_all(dest.parent().unwrap()).map_err(|e| e.to_string())?;
-            copy_dir_all(&search_dir, &dest).map_err(|e| e.to_string())?;
-            
-            // Try to link it automatically
-            let yuck_files: Vec<_> = fs::read_dir(&dest).map_err(|e| e.to_string())?
-                .filter_map(|e| e.ok())
-                .map(|e| e.path())
-                .filter(|p| p.extension().map_or(false, |ext| ext == "yuck"))
-                .collect();
-                
-            if let Some(first_yuck) = yuck_files.first() {
-                let _ = ensure_widget_linked(widget_name, first_yuck.to_string_lossy().to_string());
-            }
-            
-            return Ok(());
-        }
+    let widget_name = search_dir.file_name().unwrap().to_string_lossy().to_string();
+    let config_path = PathBuf::from(get_eww_config_path());
+    let dest = config_path.join("widgets").join(&widget_name);
+    
+    fs::create_dir_all(dest.parent().unwrap()).map_err(|e| e.to_string())?;
+    copy_dir_all(&search_dir, &dest).map_err(|e| e.to_string())?;
+    
+    // Try to link it automatically
+    let yuck_files: Vec<_> = fs::read_dir(&dest).map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().map_or(false, |ext| ext == "yuck"))
+        .collect();
+        
+    if let Some(first_yuck) = yuck_files.first() {
+        let _ = ensure_widget_linked(widget_name, first_yuck.to_string_lossy().to_string());
     }
     
-    Err("Could not find root directory in zip".to_string())
+    Ok(())
 }
 
 #[tauri::command]
@@ -369,6 +383,28 @@ fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, String>
                         }
                     }
                     
+                    // Try to find a preview image
+                    let preview = fs::read_dir(&path).ok()
+                        .and_then(|entries| {
+                            let mut images: Vec<_> = entries.filter_map(|e| e.ok())
+                                .map(|e| e.path())
+                                .filter(|p| {
+                                    let ext = p.extension().and_then(|s| s.to_str()).unwrap_or_default().to_lowercase();
+                                    ["png", "jpg", "jpeg", "webp"].contains(&ext.as_str())
+                                })
+                                .collect();
+                            
+                            images.sort_by(|a, b| {
+                                let a_name = a.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+                                let b_name = b.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+                                let a_is_preview = a_name.contains("preview");
+                                let b_is_preview = b_name.contains("preview");
+                                b_is_preview.cmp(&a_is_preview)
+                            });
+                            
+                            images.first().map(|p| p.to_string_lossy().to_string())
+                        });
+
                     if !windows.is_empty() {
                         widgets.push(WidgetInfo {
                             id: name.clone(),
@@ -379,6 +415,7 @@ fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, String>
                             yuck_path: first_yuck_path,
                             geometry: first_geometry,
                             windows,
+                            preview,
                         });
                     }
                 }
@@ -579,8 +616,40 @@ pub fn run() {
             write_widget_scss,
             upload_widget,
             fetch_community_widgets,
-            install_community_widget
+            install_community_widget,
+            delete_widget
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+#[tauri::command]
+fn delete_widget(widget_name: String) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let config_path = format!("{}/.config/veneer/eww", home);
+    let widgets_path = PathBuf::from(&config_path).join("widgets").join(&widget_name);
+    
+    // 1. Remove the widget folder
+    if widgets_path.exists() {
+        fs::remove_dir_all(&widgets_path).map_err(|e| e.to_string())?;
+    }
+    
+    // 2. Remove the symlink in the main eww directory if it exists
+    let symlink_path = PathBuf::from(&config_path).join(&widget_name);
+    if symlink_path.exists() {
+        let _ = fs::remove_file(&symlink_path);
+    }
+    
+    // 3. Remove from eww.yuck if present
+    let main_yuck_path = PathBuf::from(&config_path).join("eww.yuck");
+    if main_yuck_path.exists() {
+        let content = fs::read_to_string(&main_yuck_path).unwrap_or_default();
+        let include_line = format!("(include \"./{}/eww.yuck\")", widget_name);
+        let new_content = content.lines()
+            .filter(|line| !line.contains(&include_line))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let _ = fs::write(&main_yuck_path, new_content);
+    }
+    
+    Ok(())
 }

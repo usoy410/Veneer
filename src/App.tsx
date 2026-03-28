@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { GlassCard } from "./components/GlassCard";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { currentMonitor } from "@tauri-apps/api/window";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Square, Settings2, Terminal, Info, RefreshCw, CheckCircle, Save, Code, Plus, Settings, Cloud, Download, User, Globe } from "lucide-react";
+import { Play, Square, Settings2, Terminal, Info, RefreshCw, CheckCircle, Save, Code, Plus, Settings, Cloud, Download, User, Globe, Trash2, Loader2, X } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { cn } from "./lib/utils";
@@ -23,6 +23,7 @@ interface Widget {
   };
   yuck_path: string;
   windows: string[];
+  preview?: string;
 }
 
 interface CommunityWidget {
@@ -54,6 +55,9 @@ function App() {
   const [communityWidgets, setCommunityWidgets] = useState<CommunityWidget[]>([]);
   const [isFetchingCommunity, setIsFetchingCommunity] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [installingStep, setInstallingStep] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [maximizedPreview, setMaximizedPreview] = useState<string | null>(null);
   const constraintsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -291,12 +295,14 @@ function App() {
 
   const installCommunityWidget = async (widget: CommunityWidget) => {
     setInstallingId(widget.id);
+    setInstallingStep("Downloading...");
     try {
       await invoke("install_community_widget", { 
         downloadUrl: widget.download_url,
         folderName: widget.folder_name || null
       });
       
+      setInstallingStep("Finalizing...");
       // Refresh local widgets
       const scannedWidgets = await invoke("scan_widgets") as Widget[];
       setWidgets(scannedWidgets);
@@ -309,6 +315,34 @@ function App() {
       alert(`Installation failed: ${err}`);
     } finally {
       setInstallingId(null);
+      setInstallingStep(null);
+    }
+  };
+
+  const deleteWidget = async (widget: Widget) => {
+    if (!confirm(`Are you sure you want to delete "${widget.name}"? This will remove all files for this widget.`)) {
+      return;
+    }
+
+    setIsDeleting(widget.id);
+    try {
+      await invoke("delete_widget", { widgetName: widget.name });
+      
+      // Refresh local widgets
+      const scannedWidgets = await invoke("scan_widgets") as Widget[];
+      setWidgets(scannedWidgets);
+      
+      if (selectedWidget?.id === widget.id) {
+        setSelectedWidget(null);
+      }
+      
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to delete widget:", err);
+      alert(`Deletion failed: ${err}`);
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -394,18 +428,30 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-10">
                 {widgets.map((widget, i) => (
                   <GlassCard key={widget.id} delay={i * 0.1}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                        <Terminal className="text-blue-400 w-6 h-6" />
+                    <div className="relative h-48 bg-black/40 overflow-hidden rounded-xl mb-4 group">
+                      {widget.preview ? (
+                        <img 
+                          src={convertFileSrc(widget.preview)} 
+                          alt={widget.name}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105 cursor-zoom-in"
+                          onClick={() => setMaximizedPreview(convertFileSrc(widget.preview!))}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                          <Terminal className="w-12 h-12 text-white/20" />
+                        </div>
+                      )}
+                      
+                      <div className="absolute top-4 right-4 flex gap-2">
+                        <button
+                          onClick={() => toggleWidget(widget)}
+                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border backdrop-blur-md transition-all ${widget.status === 'active'
+                              ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                              : 'bg-black/60 text-white/30 border-white/10'
+                            }`}>
+                          {widget.status}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => toggleWidget(widget)}
-                        className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${widget.status === 'active'
-                            ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                            : 'bg-white/5 text-white/30 border-white/10'
-                          }`}>
-                        {widget.status}
-                      </button>
                     </div>
                     <h3 className="text-xl font-bold mb-2">{widget.name}</h3>
                     <p className="text-sm text-white/40 mb-6 leading-relaxed">{widget.description}</p>
@@ -489,8 +535,19 @@ function App() {
                   {widgets.length > 0 ? (
                     widgets.map((widget, i) => (
                       <GlassCard key={widget.id} delay={i * 0.1}>
-                        <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
-                          <Terminal className="text-blue-400 w-6 h-6" />
+                        <div className="relative h-48 bg-black/40 overflow-hidden rounded-xl mb-4">
+                          {widget.preview ? (
+                            <img 
+                              src={convertFileSrc(widget.preview)} 
+                              alt={widget.name}
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105 cursor-zoom-in"
+                              onClick={() => setMaximizedPreview(convertFileSrc(widget.preview!))}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center border-b border-white/5 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                              <Terminal className="w-12 h-12 text-white/20" />
+                            </div>
+                          )}
                         </div>
                         <h3 className="text-xl font-bold mb-2">{widget.name}</h3>
                         <p className="text-sm text-white/40 mb-6 line-clamp-2">{widget.description}</p>
@@ -503,11 +560,16 @@ function App() {
                             Customize
                           </button>
                           <button
-                            onClick={() => submitWidget(widget)}
-                            className="w-12 h-12 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30 transition-all group"
-                            title="Submit to Community"
+                            onClick={() => deleteWidget(widget)}
+                            className="w-12 h-12 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl flex items-center justify-center border border-red-500/30 transition-all group"
+                            title="Delete Widget"
+                            disabled={isDeleting === widget.id}
                           >
-                            <Cloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            {isDeleting === widget.id ? (
+                              <RefreshCw className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            )}
                           </button>
                         </div>
                       </GlassCard>
@@ -521,9 +583,15 @@ function App() {
               ) : (
                 <div className="space-y-6">
                   {isFetchingCommunity ? (
-                    <div className="flex flex-col items-center justify-center h-40 gap-4">
-                      <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-                      <p className="text-white/40 font-bold uppercase tracking-widest text-xs">Fetching Registry...</p>
+                    <div className="flex flex-col items-center justify-center h-[50vh] gap-6">
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-full border-4 border-white/5 border-t-blue-500 animate-spin" />
+                        <Globe className="w-6 h-6 text-blue-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-white font-bold text-lg mb-1">Fetching Community Widgets</p>
+                        <p className="text-white/40 text-sm animate-pulse">Checking for the latest updates...</p>
+                      </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -531,10 +599,17 @@ function App() {
                         <GlassCard key={widget.id} delay={i * 0.1}>
                           <div className="aspect-video rounded-xl bg-black/40 mb-4 overflow-hidden border border-white/5 group relative">
                             {widget.preview_url ? (
-                              <img src={widget.preview_url} alt={widget.name} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                              <img 
+                                src={widget.preview_url} 
+                                alt={widget.name} 
+                                className="w-full h-full object-cover transition-transform group-hover:scale-110 cursor-zoom-in" 
+                                onClick={() => setMaximizedPreview(widget.preview_url)}
+                              />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center pattern-dots opacity-20">
-                                <Cloud className="w-12 h-12 text-white" />
+                              <div className="relative h-40 bg-black/40 overflow-hidden">
+                                <div className="w-full h-full flex items-center justify-center border-b border-white/5 bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                                  <Code className="w-10 h-10 text-white/20" />
+                                </div>
                               </div>
                             )}
                             <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-white/60 flex items-center gap-1 border border-white/10">
@@ -555,11 +630,16 @@ function App() {
                             )}
                           >
                             {installingId === widget.id ? (
-                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                {installingStep}
+                              </>
                             ) : (
-                              <Download className="w-4 h-4" />
+                              <>
+                                <Download className="w-4 h-4" />
+                                Install Widget
+                              </>
                             )}
-                            {installingId === widget.id ? 'INSTALLING...' : 'INSTALL WIDGET'}
                           </button>
                         </GlassCard>
                       ))}
@@ -755,6 +835,38 @@ function App() {
               <div className="flex flex-col items-center justify-center h-[50vh] text-center">
                 <p className="text-white/20 font-black italic uppercase tracking-widest text-2xl">Coming Soon</p>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {maximizedPreview && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMaximizedPreview(null)}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-8 bg-black/80 backdrop-blur-xl cursor-zoom-out"
+            >
+              <motion.button
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                onClick={() => setMaximizedPreview(null)}
+                className="absolute top-8 right-8 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center border border-white/10 transition-all z-[110]"
+              >
+                <X className="w-6 h-6 text-white" />
+              </motion.button>
+
+              <motion.img
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                src={maximizedPreview}
+                alt="Maximized preview"
+                className="max-w-full max-h-full rounded-2xl shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/5 object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
             </motion.div>
           )}
         </AnimatePresence>
