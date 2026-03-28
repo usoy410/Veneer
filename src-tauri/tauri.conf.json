@@ -21,7 +21,7 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$HOME/.config/eww/**"]
+        "scope": ["**/.config/veneer/eww/**"]
       }
     }
   },
