@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+pkg
+target
 *.local
 .agent/
 # Editor directories and files
