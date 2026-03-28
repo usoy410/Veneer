@@ -16,5 +16,14 @@
     "download_url": "https://github.com/usoy410/Linux_Eww_Rainmeter/archive/refs/heads/master.zip",
     "folder_name": "ClockRainmeter",
     "preview_url": "https://raw.githubusercontent.com/usoy410/Linux_Eww_Rainmeter/refs/heads/master/ClockRainmeter/preview.png"
+  },
+  {
+    "id": "powermenu",
+    "name": "PowerMenu",
+    "description": "Existing widget in PowerMenu",
+    "author": "usoy",
+    "download_url": "https://github.com/usoy410/Linux_Eww_Rainmeter/archive/refs/heads/master.zip",
+    "folder_name": "PowerMenu",
+    "preview_url": "https://raw.githubusercontent.com/usoy410/Linux_Eww_Rainmeter/refs/heads/master/PowerMenu/preview.png"
   }
 ]
