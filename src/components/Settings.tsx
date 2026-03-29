@@ -15,22 +15,43 @@ export function Settings({ isEwwRunning, isRestarting, restartEww, killEww }: Se
   const [isLoadingAuto, setIsLoadingAuto] = useState(true);
 
   useEffect(() => {
-    checkEwwAutostart().then(enabled => {
-      setAutostartEnabled(enabled);
-      setIsLoadingAuto(false);
-    });
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const enabled = await checkEwwAutostart();
+        if (isMounted) {
+          setAutostartEnabled(enabled);
+        }
+      } catch (error) {
+        console.error("Failed to check Eww autostart:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingAuto(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const toggleAutostart = async () => {
     setIsLoadingAuto(true);
-    if (autostartEnabled) {
-      await disableEwwAutostart();
-      setAutostartEnabled(false);
-    } else {
-      await enableEwwAutostart();
-      setAutostartEnabled(true);
+    try {
+      if (autostartEnabled) {
+        await disableEwwAutostart();
+        setAutostartEnabled(false);
+      } else {
+        await enableEwwAutostart();
+        setAutostartEnabled(true);
+      }
+    } catch (error) {
+      console.error("Failed to toggle Eww autostart:", error);
+    } finally {
+      setIsLoadingAuto(false);
     }
-    setIsLoadingAuto(false);
   };
 
   const OptionCard = ({ title, description, icon: Icon, children, disabled = false }: any) => (
