@@ -623,14 +623,15 @@ fn kill_eww_daemon() -> Result<(), String> {
     Ok(())
 }
 
-fn get_autostart_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_default();
-    PathBuf::from(home).join(".config/autostart/eww-veneer.desktop")
+fn get_autostart_path() -> Result<PathBuf, String> {
+    tauri::api::path::home_dir()
+        .map(|home| home.join(".config/autostart/eww-veneer.desktop"))
+        .ok_or_else(|| "Could not determine home directory".to_string())
 }
 
 #[tauri::command]
 fn enable_eww_autostart() -> Result<(), String> {
-    let path = get_autostart_path();
+    let path = get_autostart_path()?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
