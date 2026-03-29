@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Dashboard } from "./components/Dashboard";
 import { Library } from "./components/Library";
@@ -17,6 +17,7 @@ function App() {
   const [selectedWidget, setSelectedWidget] = useState<Widget | null>(null);
   const [libraryView, setLibraryView] = useState<'local' | 'community'>('local');
   const [maximizedPreview, setMaximizedPreview] = useState<string | null>(null);
+  const [liveUpdate, setLiveUpdate] = useState(false);
 
   const { isEwwReady, isEwwRunning, monitorSize, isRestarting, restartEww, killEww } = useEww();
   const {
@@ -29,6 +30,19 @@ function App() {
     toggleWidget,
     fetchCommunityWidgets
   } = useWidgets();
+
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        await commands.syncAndRestartEww();
+        await fetchLocalWidgets();
+      } catch (err) {
+        console.error("Failed to initialize app:", err);
+      }
+    };
+    initApp();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCustomize = (widget: Widget) => {
     setSelectedWidget(widget);
@@ -62,7 +76,26 @@ function App() {
     if (selectedWidget?.id === widget.id) {
       setSelectedWidget({ ...selectedWidget, geometry: newGeometry });
     }
-    debouncedUpdateGeometry(widget.yuck_path, newGeometry);
+    
+    if (liveUpdate) {
+      debouncedUpdateGeometry(widget.yuck_path, newGeometry);
+    }
+  };
+
+  const saveGeometry = async (widget: Widget) => {
+    try {
+      await commands.updateWidgetGeometry(
+        widget.yuck_path,
+        widget.geometry.x,
+        widget.geometry.y,
+        widget.geometry.width,
+        widget.geometry.height
+      );
+      return true;
+    } catch (err) {
+      console.error("Failed to save geometry:", err);
+      return false;
+    }
   };
 
   const resetGeometry = () => {
@@ -113,6 +146,8 @@ function App() {
               setSelectedWidget={setSelectedWidget}
               updateGeometry={updateGeometry}
               resetGeometry={resetGeometry}
+              onSaveGeometry={saveGeometry}
+              liveUpdate={liveUpdate}
               monitorSize={monitorSize}
             />
           )}
@@ -123,6 +158,8 @@ function App() {
               isRestarting={isRestarting}
               restartEww={restartEww}
               killEww={killEww}
+              liveUpdate={liveUpdate}
+              setLiveUpdate={setLiveUpdate}
             />
           )}
         </AnimatePresence>

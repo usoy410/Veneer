@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Terminal, Globe, Plus, Trash2, RefreshCw, Loader2, Download, User, Code, Settings2 } from "lucide-react";
 import { GlassCard } from "./GlassCard";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open as openDialog, ask } from "@tauri-apps/plugin-dialog";
 import { cn } from "../lib/utils";
 import type { Widget, CommunityWidget } from "../types/widget";
 import * as commands from "../lib/commands";
@@ -81,7 +81,12 @@ export function Library({
   };
 
   const deleteWidget = async (widget: Widget) => {
-    if (!confirm(`Are you sure you want to delete "${widget.name}"? This will remove all files for this widget.`)) return;
+    const confirmed = await ask(
+      `Are you sure you want to delete "${widget.name}"? This will remove all files for this widget.`,
+      { title: 'Confirm Deletion', kind: 'warning' }
+    );
+
+    if (!confirmed) return;
 
     setIsDeleting(widget.id);
     try {

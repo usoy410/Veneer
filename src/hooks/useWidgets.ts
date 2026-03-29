@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Widget, CommunityWidget } from "../types/widget";
 import * as commands from "../lib/commands";
 
@@ -23,10 +23,6 @@ export function useWidgets() {
       console.error("Failed to scan widgets:", err);
     }
   };
-
-  useEffect(() => {
-    fetchLocalWidgets();
-  }, []);
 
   const toggleWidget = async (widget: Widget): Promise<boolean> => {
     const newStatus = widget.status === 'active' ? 'inactive' : 'active';

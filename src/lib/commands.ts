@@ -24,6 +24,13 @@ export async function restartEww(): Promise<void> {
 }
 
 /**
+ * Synchronizes active widgets, hard restarts Eww, and re-opens the active widgets.
+ */
+export async function syncAndRestartEww(): Promise<void> {
+  return invoke<void>("sync_and_restart_eww");
+}
+
+/**
  * Scans for locally installed widgets.
  */
 export async function scanWidgets(): Promise<Widget[]> {

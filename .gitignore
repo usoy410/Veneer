@@ -12,6 +12,7 @@ dist
 dist-ssr
 pkg
 target
+src-tauri/target
 *.local
 .agent/
 # Editor directories and files
