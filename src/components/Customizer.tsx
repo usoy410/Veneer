@@ -30,27 +30,55 @@ export function Customizer({
 }: CustomizerProps) {
   const [yuckContent, setYuckContent] = useState("");
   const [scssContent, setScssContent] = useState("");
-  const [editorTab, setEditorTab] = useState<'yuck' | 'scss'>('yuck');
+  const [variablesContent, setVariablesContent] = useState("");
+  const [editorTab, setEditorTab] = useState<'yuck' | 'scss' | 'variables'>('yuck');
   
   const [isSavingGeometry, setIsSavingGeometry] = useState(false);
   const [isSavingYuck, setIsSavingYuck] = useState(false);
   const [isSavingScss, setIsSavingScss] = useState(false);
+  const [isSavingVariables, setIsSavingVariables] = useState(false);
 
 
   useEffect(() => {
     if (selectedWidget) {
       const loadContent = async () => {
         try {
+          // 1. Load Layout (Yuck)
           const yuck = await commands.readWidgetYuck(selectedWidget.yuck_path);
           setYuckContent(yuck);
           
-          try {
-             const scss = await commands.readWidgetScss(selectedWidget.yuck_path);
-             setScssContent(scss);
-          } catch (e) {
-             console.log("No SCSS found or failed to load:", e);
-             setScssContent("");
+          // 2. Load Styles (SCSS)
+          if (selectedWidget.scss_path) {
+            try {
+              const scss = await commands.readWidgetYuck(selectedWidget.scss_path);
+              setScssContent(scss);
+            } catch (e) {
+              console.log("Failed to load SCSS from explicit path:", e);
+              setScssContent("");
+            }
+          } else {
+            // Fallback for legacy widgets
+            try {
+              const scss = await commands.readWidgetScss(selectedWidget.yuck_path);
+              setScssContent(scss);
+            } catch (e) {
+              setScssContent("");
+            }
           }
+
+          // 3. Load Variables
+          if (selectedWidget.variables_path) {
+            try {
+              const vars = await commands.readWidgetYuck(selectedWidget.variables_path);
+              setVariablesContent(vars);
+            } catch (e) {
+              console.log("Failed to load variables.yuck:", e);
+              setVariablesContent("");
+            }
+          } else {
+            setVariablesContent("");
+          }
+
         } catch (err) {
           console.error("Failed to load widget content:", err);
         }
@@ -60,6 +88,7 @@ export function Customizer({
       // Clear editor state when no widget is selected to avoid showing stale content
       setYuckContent("");
       setScssContent("");
+      setVariablesContent("");
       setEditorTab("yuck");
     }
   }, [selectedWidget]);
@@ -91,12 +120,27 @@ export function Customizer({
     if (!selectedWidget) return;
     setIsSavingScss(true);
     try {
-      await commands.writeWidgetScss(selectedWidget.yuck_path, scssContent);
+      if (selectedWidget.scss_path) {
+        await commands.writeWidgetYuck(selectedWidget.scss_path, scssContent);
+      } else {
+        await commands.writeWidgetScss(selectedWidget.yuck_path, scssContent);
+      }
       setIsSavingScss(false);
-
     } catch (err) {
       console.error("Failed to save scss:", err);
       setIsSavingScss(false);
+    }
+  };
+
+  const saveVariables = async () => {
+    if (!selectedWidget || !selectedWidget.variables_path) return;
+    setIsSavingVariables(true);
+    try {
+      await commands.writeWidgetYuck(selectedWidget.variables_path, variablesContent);
+      setIsSavingVariables(false);
+    } catch (err) {
+      console.error("Failed to save variables:", err);
+      setIsSavingVariables(false);
     }
   };
 
@@ -202,6 +246,17 @@ export function Customizer({
                   >
                     .SCSS
                   </button>
+                  {selectedWidget?.variables_path && (
+                    <button 
+                      onClick={() => setEditorTab('variables')}
+                      className={cn(
+                        "px-3 py-1 rounded-md text-[10px] font-black transition-all",
+                        editorTab === 'variables' ? "bg-[#2563eb] text-white shadow-sm" : "text-gray-400 hover:text-white"
+                      )}
+                    >
+                      VARS
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
@@ -210,20 +265,43 @@ export function Customizer({
             </div>
             <div className="flex-1 min-h-[300px] relative font-mono">
               <textarea
-                value={editorTab === 'yuck' ? yuckContent : scssContent}
-                onChange={(e) => editorTab === 'yuck' ? setYuckContent(e.target.value) : setScssContent(e.target.value)}
+                value={editorTab === 'yuck' ? yuckContent : editorTab === 'scss' ? scssContent : variablesContent}
+                onChange={(e) => {
+                  if (editorTab === 'yuck') setYuckContent(e.target.value);
+                  else if (editorTab === 'scss') setScssContent(e.target.value);
+                  else setVariablesContent(e.target.value);
+                }}
                 className="w-full h-full min-h-[300px] bg-[#121212] border border-[#2c2c2c] rounded-xl p-4 text-sm text-blue-100/80 outline-none focus:border-blue-600 transition-all resize-none custom-scrollbar"
-                placeholder={editorTab === 'yuck' ? "; Widget code goes here..." : "// Styles go here..."}
+                placeholder={
+                  editorTab === 'yuck' ? "; Widget code goes here..." : 
+                  editorTab === 'scss' ? "// Styles go here..." :
+                  ";; Variables, polls, and listeners go here..."
+                }
               />
             </div>
             <div className="mt-6 flex justify-end">
               <button
-                onClick={editorTab === 'yuck' ? saveYuck : saveScss}
-                disabled={editorTab === 'yuck' ? isSavingYuck : isSavingScss}
+                onClick={
+                  editorTab === 'yuck' ? saveYuck : 
+                  editorTab === 'scss' ? saveScss : 
+                  saveVariables
+                }
+                disabled={
+                  editorTab === 'yuck' ? isSavingYuck : 
+                  editorTab === 'scss' ? isSavingScss : 
+                  isSavingVariables
+                }
                 className="flex items-center gap-2 bg-[#2c2c2c] hover:bg-[#3d3d3d] text-gray-300 border border-transparent px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
               >
-                { (editorTab === 'yuck' ? isSavingYuck : isSavingScss) ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Code className="w-4 h-4" />}
-                Save {editorTab === 'yuck' ? 'Source' : 'Styles'}
+                { (editorTab === 'yuck' ? isSavingYuck : editorTab === 'scss' ? isSavingScss : isSavingVariables) ? 
+                  <RefreshCw className="w-4 h-4 animate-spin" /> : 
+                  <Code className="w-4 h-4" /> 
+                }
+                Save {
+                  editorTab === 'yuck' ? 'Source' : 
+                  editorTab === 'scss' ? 'Styles' : 
+                  'Variables'
+                }
               </button>
             </div>
           </GlassCard>

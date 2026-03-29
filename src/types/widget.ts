@@ -6,13 +6,16 @@ export interface Widget {
   name: string;
   status: 'active' | 'inactive';
   description: string;
+  path: string;
+  yuck_path: string;
+  scss_path?: string;
+  variables_path?: string;
   geometry: {
     x: number;
     y: number;
     width: number;
     height: number;
   };
-  yuck_path: string;
   windows: string[];
   preview?: string;
   is_community?: boolean;

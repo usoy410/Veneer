@@ -279,9 +279,11 @@ struct WidgetInfo {
     status: String,
     description: String,
     path: String,
-    yuck_path: String, // Added path to the .yuck file
+    yuck_path: String,
+    scss_path: Option<String>,
+    variables_path: Option<String>,
     geometry: Geometry,
-    windows: Vec<String>, // Added list of window names
+    windows: Vec<String>,
     preview: Option<String>,
     is_community: bool,
 }
@@ -491,12 +493,19 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
             found_paths.insert(canonical_path);
 
             let name = path.file_name().unwrap().to_string_lossy().to_string();
-            let yuck_files: Vec<_> = fs::read_dir(&path)
+                let mut yuck_files: Vec<_> = fs::read_dir(&path)
                 .map_err(|e| e.to_string())?
                 .filter_map(|e| e.ok())
                 .map(|e| e.path())
                 .filter(|p| p.extension().map_or(false, |ext| ext == "yuck"))
                 .collect();
+
+                // Sort to ensure variables.yuck is last
+                yuck_files.sort_by(|a, b| {
+                    let a_is_vars = a.file_name().unwrap_or_default() == "variables.yuck";
+                    let b_is_vars = b.file_name().unwrap_or_default() == "variables.yuck";
+                    a_is_vars.cmp(&b_is_vars)
+                });
 
                 if !yuck_files.is_empty() {
                     let mut windows = Vec::new();
@@ -506,12 +515,32 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                         width: 200,
                         height: 100,
                     };
+                    let mut variables_path = None;
                     let mut first_yuck_path = String::new();
 
                     for yuck_path in &yuck_files {
-                        if first_yuck_path.is_empty() {
-                            first_yuck_path = yuck_path.to_string_lossy().to_string();
+                        let y_name = yuck_path.file_name().unwrap_or_default().to_string_lossy();
+                        let is_vars = y_name == "variables.yuck";
+                        
+                        if is_vars {
+                            variables_path = Some(yuck_path.to_string_lossy().to_string());
                         }
+
+                        // Priority:
+                        // 1. eww.yuck
+                        // 2. [name].yuck
+                        // 3. Any other .yuck (if we don't have a main one yet)
+                        // Note: If only variables.yuck exists, it will become first_yuck_path (as fallback)
+                        let is_main = y_name == "eww.yuck" || y_name == format!("{}.yuck", name);
+                        let current_is_main = first_yuck_path.ends_with("/eww.yuck") || first_yuck_path.ends_with(&format!("/{}.yuck", name));
+
+                        if is_main || (first_yuck_path.is_empty() && !is_vars) || (first_yuck_path.is_empty()) {
+                            // If we already have a "main" name, don't overwrite it with a generic one unless the new one is even more specific
+                            if is_main || !current_is_main {
+                                first_yuck_path = yuck_path.to_string_lossy().to_string();
+                            }
+                        }
+
                         let content = fs::read_to_string(yuck_path).unwrap_or_default();
 
                         // Extract window names
@@ -527,10 +556,23 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                         }
                     }
 
-                    // Try to find a preview image
-                    let preview = fs::read_dir(&path).ok().and_then(|entries| {
+                    // Try to find a preview image and scss
+                    let mut scss_path = None;
+                    let entries: Vec<_> = fs::read_dir(&path).ok().map(|e| e.filter_map(|x| x.ok()).collect()).unwrap_or_default();
+
+                    for entry in &entries {
+                        let p = entry.path();
+                        if p.extension().map_or(false, |ext| ext == "scss") {
+                            let s_name = p.file_name().unwrap_or_default().to_string_lossy();
+                            if scss_path.is_none() || s_name == "style.scss" || s_name == format!("{}.scss", name) {
+                                scss_path = Some(p.to_string_lossy().to_string());
+                            }
+                        }
+                    }
+
+                    let preview = {
                         let mut images: Vec<_> = entries
-                            .filter_map(|e| e.ok())
+                            .iter()
                             .map(|e| e.path())
                             .filter(|p| {
                                 let ext = p
@@ -559,7 +601,7 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                         });
 
                         images.first().map(|p| p.to_string_lossy().to_string())
-                    });
+                    };
 
                     if !windows.is_empty() {
                         let is_active = windows.iter().any(|w| active_wins.contains(w));
@@ -575,6 +617,8 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                             description: format!("Existing widget in {}", name),
                             path: path.to_string_lossy().to_string(),
                             yuck_path: first_yuck_path,
+                            scss_path,
+                            variables_path,
                             geometry: first_geometry,
                             windows,
                             preview,
