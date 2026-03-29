@@ -1,6 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Widget, CommunityWidget } from "../types/widget";
 
+// Local widget type definitions. If the canonical definitions in App.tsx change,
+// these should be updated to match.
+export interface Widget {
+  [key: string]: unknown;
+}
+
+export interface CommunityWidget extends Widget {
+  [key: string]: unknown;
+}
 /**
  * Checks if the Eww daemon is installed and ready.
  */
@@ -103,4 +111,39 @@ export async function installCommunityWidget(downloadUrl: string, folderName: st
  */
 export async function deleteWidget(widgetName: string): Promise<void> {
   return invoke<void>("delete_widget", { widgetName });
+}
+
+/**
+ * Checks if the Eww daemon is currently running.
+ */
+export async function checkEwwRunning(): Promise<boolean> {
+  return invoke<boolean>("check_eww_running");
+}
+
+/**
+ * Kills the Eww daemon process.
+ */
+export async function killEwwDaemon(): Promise<void> {
+  return invoke<void>("kill_eww_daemon");
+}
+
+/**
+ * Enables Eww autostart on system boot.
+ */
+export async function enableEwwAutostart(): Promise<void> {
+  return invoke<void>("enable_eww_autostart");
+}
+
+/**
+ * Disables Eww autostart on system boot.
+ */
+export async function disableEwwAutostart(): Promise<void> {
+  return invoke<void>("disable_eww_autostart");
+}
+
+/**
+ * Checks if Eww autostart is currently enabled.
+ */
+export async function checkEwwAutostart(): Promise<boolean> {
+  return invoke<boolean>("check_eww_autostart");
 }

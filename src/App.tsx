@@ -1,5 +1,13 @@
 import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
+import { GlassCard } from "./components/GlassCard";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { currentMonitor } from "@tauri-apps/api/window";
+import { motion, AnimatePresence } from "framer-motion";
+import { Play, Square, Settings2, Terminal, Info, RefreshCw, CheckCircle, Save, Code, Plus, Settings, Cloud, Download, User, Globe, Trash2, Loader2, X } from "lucide-react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { cn } from "./lib/utils";
 import { Dashboard } from "./components/Dashboard";
 import { Library } from "./components/Library";
 import { Customizer } from "./components/Customizer";
@@ -16,6 +24,37 @@ function App() {
   const [selectedWidget, setSelectedWidget] = useState<Widget | null>(null);
   const [libraryView, setLibraryView] = useState<'local' | 'community'>('local');
   const [maximizedPreview, setMaximizedPreview] = useState<string | null>(null);
+  const constraintsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const init = async () => {
+      // Get monitor size
+      try {
+        const monitor = await currentMonitor();
+        if (monitor) {
+          setMonitorSize({ 
+            width: monitor.size.width / monitor.scaleFactor, 
+            height: monitor.size.height / monitor.scaleFactor 
+          });
+        }
+      } catch (err) {
+        console.error("Failed to get monitor size:", err);
+      }
+
+      // Check eww status
+      try {
+        const ready = await invoke("check_eww");
+        setIsEwwReady(ready as boolean);
+      } catch (err) {
+        console.error("Failed to check eww status:", err);
+      }
+
+      // Scan widgets
+      try {
+        const scannedWidgets = await invoke("scan_widgets") as Widget[];
+        if (scannedWidgets && Array.isArray(scannedWidgets)) {
+          setWidgets(scannedWidgets);
+
 
   const { isEwwReady, monitorSize, isRestarting, restartEww } = useEww();
   const {
@@ -117,25 +156,12 @@ function App() {
           )}
 
           {activeTab === "settings" && (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-8"
-            >
-              <header className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-4xl font-black tracking-tight mb-2 text-white uppercase">Settings</h1>
-                  <p className="text-white/40 font-medium">Configure your widget manager experience.</p>
-                </div>
-                <Settings className="w-10 h-10 text-white/10 animate-[spin_10s_linear_infinite]" />
-              </header>
-
-              <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                <p className="text-gray-500 font-bold uppercase tracking-widest text-2xl">Coming Soon</p>
-              </div>
-            </motion.div>
+            <Settings
+              isEwwRunning={isEwwRunning}
+              isRestarting={isRestarting}
+              restartEww={restartEww}
+              killEww={killEww}
+            />
           )}
         </AnimatePresence>
 
