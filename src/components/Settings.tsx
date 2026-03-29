@@ -132,7 +132,7 @@ export function Settings({ isEwwRunning, isRestarting, restartEww, killEww, live
         
         <OptionCard 
           title="Start on Boot" 
-          description="Automatically start the Eww daemon when your system boots."
+          description="Automatically start the Veneer manager when your system boots. (Note: Eww has limited GNOME support)"
           icon={Power}
         >
           <button

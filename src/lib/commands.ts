@@ -161,3 +161,17 @@ export async function checkEwwAutostart(): Promise<boolean> {
 export async function getDistroInfo(): Promise<string> {
   return invoke<string>("get_distro_info");
 }
+
+/**
+ * Saves the list of active widget IDs.
+ */
+export async function saveActiveWidgets(widgets: string[]): Promise<void> {
+  return invoke<void>("save_active_widgets", { widgets });
+}
+
+/**
+ * Loads the list of previously active widget IDs.
+ */
+export async function loadActiveWidgets(): Promise<string[]> {
+  return invoke<string[]>("load_active_widgets");
+}

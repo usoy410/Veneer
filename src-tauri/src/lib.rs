@@ -956,24 +956,52 @@ fn get_autostart_path() -> PathBuf {
 }
 
 #[tauri::command]
-fn enable_eww_autostart() -> Result<(), String> {
+fn enable_eww_autostart(app_handle: tauri::AppHandle) -> Result<(), String> {
     let path = get_autostart_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    let config_path = get_eww_config_path();
+    
+    // Get the path to the current executable
+    let exec_path = std::env::current_exe()
+        .map_err(|e| e.to_string())?
+        .to_string_lossy()
+        .to_string();
+
     let content = format!(
         "[Desktop Entry]\n\
          Type=Application\n\
-         Name=Eww Daemon (Veneer)\n\
-         Exec=eww --config {} daemon\n\
+         Name=Veneer Widget Manager\n\
+         Comment=Manage and autostart your Eww widgets\n\
+         Exec={} --hidden\n\
          StartupNotify=false\n\
          Terminal=false\n\
          X-GNOME-Autostart-enabled=true\n",
-        config_path
+        exec_path
     );
     fs::write(path, content).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+fn save_active_widgets(widgets: Vec<String>) -> Result<(), String> {
+    let config_path = PathBuf::from(get_eww_config_path());
+    let session_path = config_path.join("session.json");
+    let content = serde_json::to_string(&widgets).map_err(|e| e.to_string())?;
+    fs::write(session_path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn load_active_widgets() -> Result<Vec<String>, String> {
+    let config_path = PathBuf::from(get_eww_config_path());
+    let session_path = config_path.join("session.json");
+    if !session_path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(session_path).map_err(|e| e.to_string())?;
+    let widgets: Vec<String> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(widgets)
 }
 
 #[tauri::command]
@@ -1021,7 +1049,9 @@ pub fn run() {
             disable_eww_autostart,
             check_eww_autostart,
             sync_and_restart_eww,
-            get_distro_info
+            get_distro_info,
+            save_active_widgets,
+            load_active_widgets
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

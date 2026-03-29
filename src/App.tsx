@@ -42,7 +42,7 @@ function App() {
           return;
         }
         await commands.syncAndRestartEww();
-        await fetchLocalWidgets();
+        await fetchLocalWidgets(true);
       } catch (err) {
         console.error("Failed to initialize app:", err);
       }
