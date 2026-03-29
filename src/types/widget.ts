@@ -15,6 +15,7 @@ export interface Widget {
   yuck_path: string;
   windows: string[];
   preview?: string;
+  is_community?: boolean;
 }
 
 /**

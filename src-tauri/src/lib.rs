@@ -267,6 +267,7 @@ struct WidgetInfo {
     geometry: Geometry,
     windows: Vec<String>, // Added list of window names
     preview: Option<String>,
+    is_community: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -394,8 +395,17 @@ async fn install_community_widget(
             .collect();
 
         if let Some(first_yuck) = yuck_files.first() {
-            let _ = ensure_widget_linked(widget_name, first_yuck.to_string_lossy().to_string());
+            let _ = ensure_widget_linked(widget_name.clone(), first_yuck.to_string_lossy().to_string());
         }
+
+        // Create metadata file to track community origin
+        let metadata_path = dest.join("veneer.metadata.json");
+        let metadata = serde_json::json!({
+            "is_community": true,
+            "origin": "community",
+            "download_url": download_url
+        });
+        let _ = fs::write(metadata_path, serde_json::to_string_pretty(&metadata).unwrap_or_default());
 
         Ok(())
     })
@@ -539,6 +549,9 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                         let is_active = windows.iter().any(|w| active_wins.contains(w));
                         let status = if is_active { "active".to_string() } else { "inactive".to_string() };
 
+                        // Check for community metadata
+                        let is_community = path.join("veneer.metadata.json").exists();
+
                         widgets.push(WidgetInfo {
                             id: name.clone(),
                             name: name.clone(),
@@ -549,6 +562,7 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                             geometry: first_geometry,
                             windows,
                             preview,
+                            is_community,
                         });
                     }
                 }

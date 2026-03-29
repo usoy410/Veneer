@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Terminal, Globe, Plus, Trash2, RefreshCw, Loader2, Download, User, Code, Settings2 } from "lucide-react";
+import { Terminal, Globe, Plus, Trash2, RefreshCw, Loader2, Download, User, Code, Settings2, CheckCircle } from "lucide-react";
 import { GlassCard } from "./GlassCard";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open as openDialog, ask } from "@tauri-apps/plugin-dialog";
@@ -236,28 +236,37 @@ export function Library({
                   </div>
                   <h3 className="text-xl font-bold mb-2">{widget.name}</h3>
                   <p className="text-sm text-white/40 mb-6 line-clamp-2">{widget.description}</p>
-                  <button
-                    onClick={() => installCommunityWidget(widget)}
-                    disabled={installingId === widget.id}
-                    className={cn(
-                      "w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50",
-                      installingId === widget.id 
-                        ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                        : "bg-blue-600 hover:bg-blue-500 text-white"
-                    )}
-                  >
-                    {installingId === widget.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        {installingStep}
-                      </>
+                  <div className="flex gap-2 h-10">
+                    {widgets.some(w => w.id === widget.id || (widget.folder_name && w.name === widget.folder_name)) ? (
+                      <div className="w-full bg-[#1e1e1e] text-gray-500 rounded-xl font-bold flex items-center justify-center gap-2 border border-white/5 cursor-default">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        Installed
+                      </div>
                     ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        Install Widget
-                      </>
+                      <button
+                        onClick={() => installCommunityWidget(widget)}
+                        disabled={installingId === widget.id}
+                        className={cn(
+                          "w-full rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50",
+                          installingId === widget.id 
+                            ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                            : "bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]"
+                        )}
+                      >
+                        {installingId === widget.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            {installingStep}
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" />
+                            Install Widget
+                          </>
+                        )}
+                      </button>
                     )}
-                  </button>
+                  </div>
                 </GlassCard>
               ))}
             </div>

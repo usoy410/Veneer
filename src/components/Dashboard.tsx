@@ -168,13 +168,15 @@ export function Dashboard({
               >
                 <Settings2 className="w-5 h-5 text-white/60" />
               </button>
-              <button
-                onClick={() => submitWidget(widget)}
-                className="w-12 h-12 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30 transition-all group"
-                title="Submit to Community"
-              >
-                <Cloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              </button>
+              {!widget.is_community && (
+                <button
+                  onClick={() => submitWidget(widget)}
+                  className="w-12 h-12 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30 transition-all group"
+                  title="Submit to Community"
+                >
+                  <Cloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                </button>
+              )}
             </div>
           </GlassCard>
         ))}
