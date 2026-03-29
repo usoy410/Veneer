@@ -1,20 +1,13 @@
 import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
-import { GlassCard } from "./components/GlassCard";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { currentMonitor } from "@tauri-apps/api/window";
-import { motion, AnimatePresence } from "framer-motion";
-import { Play, Square, Settings2, Terminal, Info, RefreshCw, CheckCircle, Save, Code, Plus, Settings, Cloud, Download, User, Globe, Trash2, Loader2, X } from "lucide-react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { cn } from "./lib/utils";
 import { Dashboard } from "./components/Dashboard";
 import { Library } from "./components/Library";
 import { Customizer } from "./components/Customizer";
+import { Settings } from "./components/Settings";
 import { useEww } from "./hooks/useEww";
 import { useWidgets } from "./hooks/useWidgets";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { Widget } from "./types/widget";
 import { debounce } from "./lib/debounce";
 import * as commands from "./lib/commands";
@@ -24,39 +17,8 @@ function App() {
   const [selectedWidget, setSelectedWidget] = useState<Widget | null>(null);
   const [libraryView, setLibraryView] = useState<'local' | 'community'>('local');
   const [maximizedPreview, setMaximizedPreview] = useState<string | null>(null);
-  const constraintsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const init = async () => {
-      // Get monitor size
-      try {
-        const monitor = await currentMonitor();
-        if (monitor) {
-          setMonitorSize({ 
-            width: monitor.size.width / monitor.scaleFactor, 
-            height: monitor.size.height / monitor.scaleFactor 
-          });
-        }
-      } catch (err) {
-        console.error("Failed to get monitor size:", err);
-      }
-
-      // Check eww status
-      try {
-        const ready = await invoke("check_eww");
-        setIsEwwReady(ready as boolean);
-      } catch (err) {
-        console.error("Failed to check eww status:", err);
-      }
-
-      // Scan widgets
-      try {
-        const scannedWidgets = await invoke("scan_widgets") as Widget[];
-        if (scannedWidgets && Array.isArray(scannedWidgets)) {
-          setWidgets(scannedWidgets);
-
-
-  const { isEwwReady, monitorSize, isRestarting, restartEww } = useEww();
+  const { isEwwReady, isEwwRunning, monitorSize, isRestarting, restartEww, killEww } = useEww();
   const {
     widgets,
     setWidgets,

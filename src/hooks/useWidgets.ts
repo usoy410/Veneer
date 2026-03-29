@@ -10,7 +10,7 @@ export function useWidgets() {
 
   const fetchLocalWidgets = async () => {
     try {
-      const scannedWidgets = await commands.scanWidgets();
+      const scannedWidgets = await commands.scanWidgets() as unknown as Widget[];
       if (scannedWidgets && Array.isArray(scannedWidgets)) {
         setWidgets(scannedWidgets);
         const initials: Record<string, Widget['geometry']> = {};
@@ -54,7 +54,7 @@ export function useWidgets() {
   const fetchCommunityWidgets = async () => {
     setIsFetchingCommunity(true);
     try {
-      const result = await commands.fetchCommunityWidgets();
+      const result = await commands.fetchCommunityWidgets() as unknown as CommunityWidget[];
       setCommunityWidgets(result);
     } catch (err) {
       console.error("Failed to fetch community widgets:", err);
