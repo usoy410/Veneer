@@ -52,6 +52,11 @@ export function Customizer({
         }
       };
       loadContent();
+    } else {
+      // Clear editor state when no widget is selected to avoid showing stale content
+      setYuckContent("");
+      setScssContent("");
+      setEditorTab("yuck");
     }
   }, [selectedWidget]);
 
