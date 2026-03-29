@@ -1,6 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Widget, CommunityWidget } from "../types/widget";
 
+// Local widget type definitions. If the canonical definitions in App.tsx change,
+// these should be updated to match.
+export interface Widget {
+  [key: string]: unknown;
+}
+
+export interface CommunityWidget extends Widget {
+  [key: string]: unknown;
+}
 /**
  * Checks if the Eww daemon is installed and ready.
  */
