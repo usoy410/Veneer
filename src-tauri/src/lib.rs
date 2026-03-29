@@ -598,7 +598,12 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result
 
 #[tauri::command]
 fn check_eww_running() -> bool {
-    Command::new("eww").arg("ping").status().map(|s| s.success()).unwrap_or(false)
+    let config_path = get_eww_config_path();
+    Command::new("eww")
+        .args(["--config", config_path.as_str(), "ping"])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }
 
 #[tauri::command]
