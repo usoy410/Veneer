@@ -33,8 +33,7 @@ export function Library({
   onDelete,
   setMaximizedPreview
 }: LibraryProps) {
-  const [installingId, setInstallingId] = useState<string | null>(null);
-  const [installingStep, setInstallingStep] = useState<string | null>(null);
+  const [installingStates, setInstallingStates] = useState<Record<string, string>>({});
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
 
@@ -63,20 +62,20 @@ export function Library({
   };
 
   const installCommunityWidget = async (widget: CommunityWidget) => {
-    setInstallingId(widget.id);
-    setInstallingStep("Downloading...");
+    setInstallingStates(prev => ({ ...prev, [widget.id]: "Downloading..." }));
     try {
       await commands.installCommunityWidget(widget.download_url, widget.folder_name || null);
-      setInstallingStep("Finalizing...");
+      setInstallingStates(prev => ({ ...prev, [widget.id]: "Finalizing..." }));
       fetchLocalWidgets();
-
-      setLibraryView('local');
     } catch (err) {
       console.error("Failed to install widget:", err);
       alert(`Installation failed: ${err}`);
     } finally {
-      setInstallingId(null);
-      setInstallingStep(null);
+      setInstallingStates(prev => {
+        const next = { ...prev };
+        delete next[widget.id];
+        return next;
+      });
     }
   };
 
@@ -245,18 +244,18 @@ export function Library({
                     ) : (
                       <button
                         onClick={() => installCommunityWidget(widget)}
-                        disabled={installingId === widget.id}
+                        disabled={!!installingStates[widget.id]}
                         className={cn(
                           "w-full rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50",
-                          installingId === widget.id 
+                          installingStates[widget.id] 
                             ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                             : "bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]"
                         )}
                       >
-                        {installingId === widget.id ? (
+                        {installingStates[widget.id] ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            {installingStep}
+                            {installingStates[widget.id]}
                           </>
                         ) : (
                           <>
