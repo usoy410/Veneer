@@ -1,5 +1,7 @@
 # Veneer
 
+![Veneer Preview](preview.png)
+
 A widget management tool for **Eww** (Elkowar's Wacky Widgets). Veneer provides a friendly GUI to manage, customize, and install your Linux desktop widgets with ease.
 
 ## Features
@@ -7,6 +9,7 @@ A widget management tool for **Eww** (Elkowar's Wacky Widgets). Veneer provides 
 - **Dashboard**: Monitor and toggle your active widgets.
 - **Library**: Upload and manage your custom widget configurations.
 - **Customizer**: Real-time visual geometry adjustment and direct source code editing (.yuck and .scss).
+- **Settings**: Control the Eww daemon status, enable system autostart, and manage processes directly within the GUI.
 - **Tauri Backend**: High-performance Rust backend for direct system and Eww interaction.
 
 ## 🛠️ Managing Widgets
