@@ -53,7 +53,8 @@ export function Dashboard({
       `**IMPORTANT:** Please provide a valid \`preview_url\` (direct link to a screenshot) so users can see what they're installing!`
     );
 
-    const url = `https://github.com/usoy410/Veneer/issues/new?title=Widget+Submission:+${widget.name}&body=${body}`;
+    const title = encodeURIComponent(`Widget Submission: ${widget.name}`);
+    const url = `https://github.com/usoy410/Veneer/issues/new?title=${title}&body=${body}`;
     try {
       await openUrl(url);
     } catch (err) {
