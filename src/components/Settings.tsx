@@ -12,6 +12,7 @@ interface SettingsProps {
   killEww: () => Promise<boolean>;
   liveUpdate: boolean;
   setLiveUpdate: (enabled: boolean) => void;
+  setShowOnboarding: (show: boolean) => void;
 }
 
 interface OptionCardProps {
@@ -22,7 +23,7 @@ interface OptionCardProps {
   disabled?: boolean;
 }
 
-export function Settings({ isEwwRunning, isRestarting, restartEww, killEww, liveUpdate, setLiveUpdate }: SettingsProps) {
+export function Settings({ isEwwRunning, isRestarting, restartEww, killEww, liveUpdate, setLiveUpdate, setShowOnboarding }: SettingsProps) {
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [isLoadingAuto, setIsLoadingAuto] = useState(true);
 
@@ -234,6 +235,21 @@ export function Settings({ isEwwRunning, isRestarting, restartEww, killEww, live
           disabled={true}
         >
            <button disabled className="px-4 py-2 bg-white/5 text-white/30 rounded-lg text-sm font-medium">Coming Soon</button>
+        </OptionCard>
+
+        <h2 className="text-xl font-bold text-white mt-10 mb-4">Troubleshooting</h2>
+        
+        <OptionCard 
+          title="Setup Wizard" 
+          description="Re-run the initial setup wizard to verify dependencies and re-initialize the Eww daemon."
+          icon={RefreshCw}
+        >
+          <button 
+            onClick={() => setShowOnboarding(true)}
+            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            Launch Wizard
+          </button>
         </OptionCard>
       </div>
     </motion.div>

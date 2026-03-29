@@ -4,6 +4,7 @@ import { Dashboard } from "./components/Dashboard";
 import { Library } from "./components/Library";
 import { Customizer } from "./components/Customizer";
 import { Settings } from "./components/Settings";
+import { Onboarding } from "./components/Onboarding";
 import { useEww } from "./hooks/useEww";
 import { useWidgets } from "./hooks/useWidgets";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,6 +19,7 @@ function App() {
   const [libraryView, setLibraryView] = useState<'local' | 'community'>('local');
   const [maximizedPreview, setMaximizedPreview] = useState<string | null>(null);
   const [liveUpdate, setLiveUpdate] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { isEwwReady, isEwwRunning, monitorSize, isRestarting, restartEww, killEww } = useEww();
   const {
@@ -34,6 +36,11 @@ function App() {
   useEffect(() => {
     const initApp = async () => {
       try {
+        const isReady = await commands.checkEww();
+        if (!isReady) {
+          setShowOnboarding(true);
+          return;
+        }
         await commands.syncAndRestartEww();
         await fetchLocalWidgets();
       } catch (err) {
@@ -108,6 +115,11 @@ function App() {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans selection:bg-blue-500/30">
+      <AnimatePresence>
+        {showOnboarding && (
+          <Onboarding onComplete={() => setShowOnboarding(false)} />
+        )}
+      </AnimatePresence>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="flex-1 p-10 overflow-y-auto custom-scrollbar" style={{ touchAction: 'pan-y' }}>
@@ -160,6 +172,7 @@ function App() {
               killEww={killEww}
               liveUpdate={liveUpdate}
               setLiveUpdate={setLiveUpdate}
+              setShowOnboarding={setShowOnboarding}
             />
           )}
         </AnimatePresence>

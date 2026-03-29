@@ -154,3 +154,10 @@ export async function disableEwwAutostart(): Promise<void> {
 export async function checkEwwAutostart(): Promise<boolean> {
   return invoke<boolean>("check_eww_autostart");
 }
+
+/**
+ * Gets the current Linux distribution information.
+ */
+export async function getDistroInfo(): Promise<string> {
+  return invoke<string>("get_distro_info");
+}

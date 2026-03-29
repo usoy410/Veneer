@@ -27,6 +27,22 @@ fn get_eww_config_path() -> String {
 }
 
 #[tauri::command]
+fn get_distro_info() -> String {
+    let os_release = fs::read_to_string("/etc/os-release").unwrap_or_default();
+    if os_release.contains("ID=arch") {
+        "arch".to_string()
+    } else if os_release.contains("ID=ubuntu") {
+        "ubuntu".to_string()
+    } else if os_release.contains("ID=debian") {
+        "debian".to_string()
+    } else if os_release.contains("ID=fedora") {
+        "fedora".to_string()
+    } else {
+        "generic".to_string()
+    }
+}
+
+#[tauri::command]
 async fn run_eww_command(args: Vec<String>) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let config_path = get_eww_config_path();
@@ -960,7 +976,8 @@ pub fn run() {
             enable_eww_autostart,
             disable_eww_autostart,
             check_eww_autostart,
-            sync_and_restart_eww
+            sync_and_restart_eww,
+            get_distro_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
