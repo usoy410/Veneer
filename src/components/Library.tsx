@@ -17,6 +17,7 @@ export interface LibraryProps {
   fetchLocalWidgets: () => void;
   fetchCommunityWidgets: () => void;
   onCustomize: (widget: Widget) => void;
+  onDelete: (widget: Widget) => void;
   setMaximizedPreview: (url: string | null) => void;
 }
 
@@ -29,6 +30,7 @@ export function Library({
   fetchLocalWidgets,
   fetchCommunityWidgets,
   onCustomize,
+  onDelete,
   setMaximizedPreview
 }: LibraryProps) {
   const [installingId, setInstallingId] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export function Library({
     try {
       await commands.deleteWidget(widget.name);
       fetchLocalWidgets();
-
+      onDelete(widget);
     } catch (err) {
       console.error("Failed to delete widget:", err);
       alert(`Deletion failed: ${err}`);

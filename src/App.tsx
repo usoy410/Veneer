@@ -34,6 +34,13 @@ function App() {
     setActiveTab('customizer');
   };
 
+  const handleDelete = (widget: Widget) => {
+    if (selectedWidget?.id === widget.id) {
+      setSelectedWidget(null);
+      setActiveTab('library');
+    }
+  };
+
   const debouncedUpdateGeometry = debounce(async (yuck_path: string, geometry: Widget['geometry']) => {
     try {
       await commands.updateWidgetGeometry(
@@ -93,6 +100,7 @@ function App() {
               fetchLocalWidgets={fetchLocalWidgets}
               fetchCommunityWidgets={fetchCommunityWidgets}
               onCustomize={handleCustomize}
+              onDelete={handleDelete}
               setMaximizedPreview={setMaximizedPreview}
             />
           )}
