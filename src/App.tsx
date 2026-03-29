@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Sidebar } from "./components/Sidebar";
+<<<<<<< Updated upstream
 import { GlassCard } from "./components/GlassCard";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { currentMonitor } from "@tauri-apps/api/window";
@@ -8,6 +9,17 @@ import { Play, Square, Settings2, Terminal, Info, RefreshCw, CheckCircle, Save, 
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { cn } from "./lib/utils";
+=======
+import { Dashboard } from "./components/Dashboard";
+import { Library } from "./components/Library";
+import { Customizer } from "./components/Customizer";
+import { Settings } from "./components/Settings";
+import { useEww } from "./hooks/useEww";
+import { useWidgets } from "./hooks/useWidgets";
+import { motion, AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
+import type { Widget } from "./types/widget";
+>>>>>>> Stashed changes
 import { debounce } from "./lib/debounce";
 
 interface Widget {
@@ -60,6 +72,7 @@ function App() {
   const [maximizedPreview, setMaximizedPreview] = useState<string | null>(null);
   const constraintsRef = useRef<HTMLDivElement>(null);
 
+<<<<<<< Updated upstream
   useEffect(() => {
     const init = async () => {
       // Get monitor size
@@ -74,6 +87,19 @@ function App() {
       } catch (err) {
         console.error("Failed to get monitor size:", err);
       }
+=======
+  const { isEwwReady, isEwwRunning, monitorSize, isRestarting, restartEww, killEww } = useEww();
+  const {
+    widgets,
+    setWidgets,
+    initialGeometries,
+    communityWidgets,
+    isFetchingCommunity,
+    fetchLocalWidgets,
+    toggleWidget,
+    fetchCommunityWidgets
+  } = useWidgets();
+>>>>>>> Stashed changes
 
       // Check eww status
       try {
@@ -817,25 +843,12 @@ function App() {
           )}
 
           {activeTab === "settings" && (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-8"
-            >
-              <header className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-4xl font-black tracking-tight mb-2 text-white uppercase">Settings</h1>
-                  <p className="text-white/40 font-medium">Configure your widget manager experience.</p>
-                </div>
-                <Settings className="w-10 h-10 text-white/10 animate-[spin_10s_linear_infinite]" />
-              </header>
-
-              <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                <p className="text-gray-500 font-bold uppercase tracking-widest text-2xl">Coming Soon</p>
-              </div>
-            </motion.div>
+            <Settings
+              isEwwRunning={isEwwRunning}
+              isRestarting={isRestarting}
+              restartEww={restartEww}
+              killEww={killEww}
+            />
           )}
         </AnimatePresence>
 

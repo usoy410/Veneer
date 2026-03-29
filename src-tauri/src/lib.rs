@@ -596,6 +596,58 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result
     Ok(())
 }
 
+#[tauri::command]
+fn check_eww_running() -> bool {
+    Command::new("eww").arg("ping").status().map(|s| s.success()).unwrap_or(false)
+}
+
+#[tauri::command]
+fn kill_eww_daemon() -> Result<(), String> {
+    Command::new("pkill").arg("eww").status().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn get_autostart_path() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_default();
+    PathBuf::from(home).join(".config/autostart/eww-veneer.desktop")
+}
+
+#[tauri::command]
+fn enable_eww_autostart() -> Result<(), String> {
+    let path = get_autostart_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let config_path = get_eww_config_path();
+    let content = format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Name=Eww Daemon (Veneer)\n\
+         Exec=eww --config {} daemon\n\
+         StartupNotify=false\n\
+         Terminal=false\n\
+         X-GNOME-Autostart-enabled=true\n",
+        config_path
+    );
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn disable_eww_autostart() -> Result<(), String> {
+    let path = get_autostart_path();
+    if path.exists() {
+        fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn check_eww_autostart() -> bool {
+    let path = get_autostart_path();
+    path.exists()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -619,7 +671,12 @@ pub fn run() {
             upload_widget,
             fetch_community_widgets,
             install_community_widget,
-            delete_widget
+            delete_widget,
+            check_eww_running,
+            kill_eww_daemon,
+            enable_eww_autostart,
+            disable_eww_autostart,
+            check_eww_autostart
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
