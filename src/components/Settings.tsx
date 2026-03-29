@@ -2,12 +2,16 @@ import { useState, useEffect, ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Settings as SettingsIcon, Power, Play, RefreshCw, LogOut, Terminal, Palette, FolderOpen, Link } from "lucide-react";
 import { checkEwwAutostart, enableEwwAutostart, disableEwwAutostart } from "../lib/commands";
+import { ask } from "@tauri-apps/plugin-dialog";
+import { cn } from "../lib/utils";
 
 interface SettingsProps {
   isEwwRunning: boolean;
   isRestarting: boolean;
   restartEww: () => Promise<boolean>;
   killEww: () => Promise<boolean>;
+  liveUpdate: boolean;
+  setLiveUpdate: (enabled: boolean) => void;
 }
 
 interface OptionCardProps {
@@ -18,7 +22,7 @@ interface OptionCardProps {
   disabled?: boolean;
 }
 
-export function Settings({ isEwwRunning, isRestarting, restartEww, killEww }: SettingsProps) {
+export function Settings({ isEwwRunning, isRestarting, restartEww, killEww, liveUpdate, setLiveUpdate }: SettingsProps) {
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [isLoadingAuto, setIsLoadingAuto] = useState(true);
 
@@ -61,16 +65,45 @@ export function Settings({ isEwwRunning, isRestarting, restartEww, killEww }: Se
       setIsLoadingAuto(false);
     }
   };
+  
+  const toggleLiveUpdate = async () => {
+    if (!liveUpdate) {
+      const confirmed = await ask(
+        "DANGER: Live Update can PERMANENTLY CORRUPT your widget files if sliders are moved too quickly. This feature is unstable and intended for advanced users only. Proceed?",
+        { title: "⚠️ CRITICAL SYSTEM WARNING", kind: "warning" }
+      );
+      if (confirmed) {
+        setLiveUpdate(true);
+      }
+    } else {
+      setLiveUpdate(false);
+    }
+  };
 
-  const OptionCard = ({ title, description, icon: Icon, children, disabled = false }: OptionCardProps) => (
-    <div className={`p-6 rounded-2xl border border-white/5 bg-[#121212] flex items-center justify-between ${disabled ? 'opacity-50' : ''}`}>
+  const OptionCard = ({ title, description, icon: Icon, children, disabled = false, variant = 'default' }: OptionCardProps & { variant?: 'default' | 'warning' }) => (
+    <div className={cn(
+      "p-6 rounded-2xl border transition-all flex items-center justify-between",
+      disabled ? 'opacity-50' : '',
+      variant === 'warning' 
+        ? 'bg-orange-500/5 border-orange-500/20 hover:border-orange-500/40' 
+        : 'bg-[#121212] border-white/5'
+    )}>
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
-          <Icon className="w-6 h-6 text-white/70" />
+        <div className={cn(
+          "w-12 h-12 rounded-xl flex items-center justify-center",
+          variant === 'warning' ? 'bg-orange-500/10' : 'bg-white/5'
+        )}>
+          <Icon className={cn(
+            "w-6 h-6",
+            variant === 'warning' ? 'text-orange-500' : 'text-white/70'
+          )} />
         </div>
         <div>
-          <h3 className="text-white font-medium text-lg">{title}</h3>
-          <p className="text-white/40 text-sm">{description}</p>
+          <h3 className={cn(
+            "font-bold text-lg",
+            variant === 'warning' ? 'text-orange-500' : 'text-white'
+          )}>{title}</h3>
+          <p className="text-white/40 text-sm max-w-md">{description}</p>
         </div>
       </div>
       <div>{children}</div>
@@ -147,6 +180,30 @@ export function Settings({ isEwwRunning, isRestarting, restartEww, killEww }: Se
               <RefreshCw className={`w-4 h-4 ${isRestarting ? 'animate-spin' : ''}`} />
               Restart
             </button>
+          </div>
+        </OptionCard>
+
+        <h2 className="text-xl font-bold text-white mt-10 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+          Experimental Features
+        </h2>
+
+        <OptionCard 
+          title="Live Geometry Update" 
+          description="Update widget geometry in real-time as you slide. Warning: This can cause file corruption if sliders are moved too quickly."
+          icon={RefreshCw}
+          variant="warning"
+        >
+          <div className="flex flex-col items-end gap-2">
+            <button
+              onClick={toggleLiveUpdate}
+              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none ${liveUpdate ? 'bg-orange-600 shadow-[0_0_15px_rgba(234,88,12,0.4)]' : 'bg-white/10'}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${liveUpdate ? 'translate-x-[26px]' : 'translate-x-1'}`} />
+            </button>
+            {liveUpdate && (
+              <span className="text-[10px] font-black text-orange-500 animate-pulse uppercase tracking-tighter">Active Danger</span>
+            )}
           </div>
         </OptionCard>
 

@@ -13,6 +13,8 @@ export interface CustomizerProps {
   setSelectedWidget: (widget: Widget | null) => void;
   updateGeometry: (widget: Widget, key: keyof Widget['geometry'], value: number) => void;
   resetGeometry: () => void;
+  onSaveGeometry: (widget: Widget) => Promise<boolean>;
+  liveUpdate: boolean;
   monitorSize: { width: number; height: number };
 }
 
@@ -22,6 +24,8 @@ export function Customizer({
   setSelectedWidget,
   updateGeometry,
   resetGeometry,
+  onSaveGeometry,
+  liveUpdate,
   monitorSize,
 }: CustomizerProps) {
   const [yuckContent, setYuckContent] = useState("");
@@ -63,19 +67,10 @@ export function Customizer({
   const saveGeometry = async () => {
     if (!selectedWidget) return;
     setIsSavingGeometry(true);
-    try {
-      await commands.updateWidgetGeometry(
-        selectedWidget.yuck_path,
-        selectedWidget.geometry.x,
-        selectedWidget.geometry.y,
-        selectedWidget.geometry.width,
-        selectedWidget.geometry.height
-      );
-      setIsSavingGeometry(false);
-
-    } catch (err) {
-      console.error("Failed to save geometry:", err);
-      setIsSavingGeometry(false);
+    const success = await onSaveGeometry(selectedWidget);
+    setIsSavingGeometry(false);
+    if (success) {
+      // Optional: show toast
     }
   };
 
@@ -181,6 +176,7 @@ export function Customizer({
             monitorSize={monitorSize}
             isSavingGeometry={isSavingGeometry}
             onSaveGeometry={saveGeometry}
+            liveUpdate={liveUpdate}
           />
 
           <GlassCard className="flex flex-col">

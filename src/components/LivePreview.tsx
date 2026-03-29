@@ -9,13 +9,15 @@ export interface LivePreviewProps {
   monitorSize: { width: number; height: number };
   isSavingGeometry: boolean;
   onSaveGeometry: () => void;
+  liveUpdate: boolean;
 }
 
 export function LivePreview({
   selectedWidget,
   monitorSize,
   isSavingGeometry,
-  onSaveGeometry
+  onSaveGeometry,
+  liveUpdate
 }: LivePreviewProps) {
   const constraintsRef = useRef<HTMLDivElement>(null);
 
@@ -23,6 +25,16 @@ export function LivePreview({
     <GlassCard className="flex flex-col">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Live Preview</h3>
+        {liveUpdate ? (
+          <div className="flex items-center gap-1.5 bg-orange-500/10 text-orange-400 px-2 py-1 rounded text-[10px] font-black uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+            Live Update ON
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black uppercase">
+            Manual Save Mode
+          </div>
+        )}
       </div>
       <div
         ref={constraintsRef}
