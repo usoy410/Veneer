@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Settings as SettingsIcon, Power, Play, RefreshCw, LogOut, Terminal, Palette, FolderOpen, Link } from "lucide-react";
 import { checkEwwAutostart, enableEwwAutostart, disableEwwAutostart } from "../lib/commands";
@@ -8,6 +8,14 @@ interface SettingsProps {
   isRestarting: boolean;
   restartEww: () => Promise<boolean>;
   killEww: () => Promise<boolean>;
+}
+
+interface OptionCardProps {
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: ReactNode;
+  disabled?: boolean;
 }
 
 export function Settings({ isEwwRunning, isRestarting, restartEww, killEww }: SettingsProps) {
@@ -54,7 +62,7 @@ export function Settings({ isEwwRunning, isRestarting, restartEww, killEww }: Se
     }
   };
 
-  const OptionCard = ({ title, description, icon: Icon, children, disabled = false }: any) => (
+  const OptionCard = ({ title, description, icon: Icon, children, disabled = false }: OptionCardProps) => (
     <div className={`p-6 rounded-2xl border border-white/5 bg-[#121212] flex items-center justify-between ${disabled ? 'opacity-50' : ''}`}>
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
