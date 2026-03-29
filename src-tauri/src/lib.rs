@@ -956,7 +956,7 @@ fn get_autostart_path() -> PathBuf {
 }
 
 #[tauri::command]
-fn enable_eww_autostart(app_handle: tauri::AppHandle) -> Result<(), String> {
+fn enable_eww_autostart(_app_handle: tauri::AppHandle) -> Result<(), String> {
     let path = get_autostart_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -1021,7 +1021,21 @@ fn check_eww_autostart() -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    
+    // Check for --hidden flag to start without showing the window
+    let is_hidden = std::env::args().any(|arg| arg == "--hidden");
+
+    builder
+        .setup(move |app| {
+            if is_hidden {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
