@@ -608,7 +608,18 @@ fn check_eww_running() -> bool {
 
 #[tauri::command]
 fn kill_eww_daemon() -> Result<(), String> {
-    Command::new("pkill").arg("eww").status().map_err(|e| e.to_string())?;
+    let status = Command::new("pkill")
+        .arg("eww")
+        .status()
+        .map_err(|e| e.to_string())?;
+
+    if !status.success() {
+        let code = status
+            .code()
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        return Err(format!("Failed to kill eww daemon: pkill exited with status {}", code));
+    }
     Ok(())
 }
 
