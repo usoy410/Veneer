@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { RefreshCw, CheckCircle, Info, Terminal, Play, Square, Settings2, Cloud } from "lucide-react";
+import { RefreshCw, CheckCircle, Info, Terminal, Play, Square, Settings2, Cloud, Loader2 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { GlassCard } from "./GlassCard";
@@ -27,6 +27,16 @@ export function Dashboard({
   setMaximizedPreview,
 }: DashboardProps) {
   const [showSuccess, setShowSuccess] = useState(false);
+  const [loadingWidgets, setLoadingWidgets] = useState<Record<string, boolean>>({});
+
+  const handleToggleWidget = async (widget: Widget) => {
+    setLoadingWidgets(prev => ({ ...prev, [widget.id]: true }));
+    try {
+      await toggleWidget(widget);
+    } finally {
+      setLoadingWidgets(prev => ({ ...prev, [widget.id]: false }));
+    }
+  };
 
   const handleRestart = async () => {
     const success = await restartEww();
@@ -120,27 +130,41 @@ export function Dashboard({
                   <Terminal className="w-12 h-12 text-white/20" />
                 </div>
               )}
-              
               <div className="absolute top-4 right-4 flex gap-2">
                 <button
-                  onClick={() => toggleWidget(widget)}
-                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${widget.status === 'active'
+                  onClick={() => handleToggleWidget(widget)}
+                  disabled={loadingWidgets[widget.id]}
+                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-1 ${widget.status === 'active'
                       ? 'bg-blue-600 text-white border-transparent shadow-sm'
                       : 'bg-[#2c2c2c] text-gray-400 border-transparent'
-                    }`}>
+                    } disabled:opacity-75 disabled:cursor-not-allowed`}>
+                  {loadingWidgets[widget.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                   {widget.status}
                 </button>
+                {widget.startup_scripts && widget.startup_scripts.length > 0 && (
+                  <div className="bg-[#2c2c2c]/80 backdrop-blur-md text-[9px] font-black text-white/60 px-2 py-1 rounded-full border border-white/5 uppercase tracking-tighter flex items-center gap-1 shadow-sm" title={`Initialization scripts: ${widget.startup_scripts.join(', ')}`}>
+                    <Terminal className="w-2.5 h-2.5" />
+                    Init Script
+                  </div>
+                )}
               </div>
             </div>
             <h3 className="text-xl font-bold mb-2">{widget.name}</h3>
             <p className="text-sm text-white/40 mb-6 leading-relaxed">{widget.description}</p>
             <div className="flex gap-2">
               <button
-                onClick={() => toggleWidget(widget)}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95"
+                onClick={() => handleToggleWidget(widget)}
+                disabled={loadingWidgets[widget.id]}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-75 disabled:cursor-not-allowed"
               >
-                {widget.status === 'active' ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
-                {widget.status === 'active' ? 'Stop' : 'Start'}
+                {loadingWidgets[widget.id] ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : widget.status === 'active' ? (
+                  <Square className="w-4 h-4 fill-current" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current" />
+                )}
+                {loadingWidgets[widget.id] ? (widget.status === 'active' ? 'Stopping...' : 'Starting...') : (widget.status === 'active' ? 'Stop' : 'Start')}
               </button>
               <button
                 onClick={() => onCustomize(widget)}
@@ -149,13 +173,15 @@ export function Dashboard({
               >
                 <Settings2 className="w-5 h-5 text-white/60" />
               </button>
-              <button
-                onClick={() => submitWidget(widget)}
-                className="w-12 h-12 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30 transition-all group"
-                title="Submit to Community"
-              >
-                <Cloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              </button>
+              {!widget.is_community && (
+                <button
+                  onClick={() => submitWidget(widget)}
+                  className="w-12 h-12 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30 transition-all group"
+                  title="Submit to Community"
+                >
+                  <Cloud className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                </button>
+              )}
             </div>
           </GlassCard>
         ))}

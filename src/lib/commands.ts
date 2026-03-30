@@ -24,6 +24,13 @@ export async function restartEww(): Promise<void> {
 }
 
 /**
+ * Synchronizes active widgets, hard restarts Eww, and re-opens the active widgets.
+ */
+export async function syncAndRestartEww(): Promise<void> {
+  return invoke<void>("sync_and_restart_eww");
+}
+
+/**
  * Scans for locally installed widgets.
  */
 export async function scanWidgets(): Promise<Widget[]> {
@@ -66,9 +73,10 @@ export async function updateWidgetGeometry(
   x: number, 
   y: number, 
   width: number, 
-  height: number
+  height: number,
+  stacking: string
 ): Promise<void> {
-  return invoke<void>("update_widget_geometry", { yuckPath, x, y, width, height });
+  return invoke<void>("update_widget_geometry", { yuckPath, x, y, width, height, stacking });
 }
 
 /**
@@ -147,3 +155,32 @@ export async function disableEwwAutostart(): Promise<void> {
 export async function checkEwwAutostart(): Promise<boolean> {
   return invoke<boolean>("check_eww_autostart");
 }
+
+/**
+ * Gets the current Linux distribution information.
+ */
+export async function getDistroInfo(): Promise<string> {
+  return invoke<string>("get_distro_info");
+}
+
+/**
+ * Saves the list of active widget IDs.
+ */
+export async function saveActiveWidgets(widgets: string[]): Promise<void> {
+  return invoke<void>("save_active_widgets", { widgets });
+}
+
+/**
+ * Loads the list of previously active widget IDs.
+ */
+export async function loadActiveWidgets(): Promise<string[]> {
+  return invoke<string[]>("load_active_widgets");
+}
+
+/**
+ * Executes startup scripts for all widgets.
+ */
+export async function executeStartupScripts(): Promise<void> {
+  return invoke<void>("execute_startup_scripts");
+}
+

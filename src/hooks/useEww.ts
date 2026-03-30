@@ -35,10 +35,15 @@ export function useEww() {
       await checkStatus();
     };
     init();
+ 
+    let timeoutId: number;
+    const poll = async () => {
+      await checkStatus();
+      timeoutId = window.setTimeout(poll, 3000);
+    };
+    timeoutId = window.setTimeout(poll, 3000);
 
-    // Poll status occasionally
-    const interval = setInterval(checkStatus, 3000);
-    return () => clearInterval(interval);
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const restartEww = async (): Promise<boolean> => {

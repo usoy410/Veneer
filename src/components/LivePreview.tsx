@@ -9,13 +9,15 @@ export interface LivePreviewProps {
   monitorSize: { width: number; height: number };
   isSavingGeometry: boolean;
   onSaveGeometry: () => void;
+  liveUpdate: boolean;
 }
 
 export function LivePreview({
   selectedWidget,
   monitorSize,
   isSavingGeometry,
-  onSaveGeometry
+  onSaveGeometry,
+  liveUpdate
 }: LivePreviewProps) {
   const constraintsRef = useRef<HTMLDivElement>(null);
 
@@ -59,23 +61,17 @@ export function LivePreview({
         )}
 
         {/* Grid overlay for aesthetic */}
-        <div className="absolute inset-0 grid grid-cols-12 grid-rows-12 pointer-events-none opacity-5">
-          {Array.from({ length: 144 }).map((_, i) => (
-            <div key={i} className="border-[0.5px] border-white/20" />
-          ))}
-        </div>
+        <div
+          className="absolute inset-0 pointer-events-none opacity-10"
+          style={{
+            backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.2) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255,255,255,0.2) 1px, transparent 1px)`,
+            backgroundSize: `${100 / 12}% ${100 / 12}%`
+          }}
+        />
       </div>
 
-      <div className="mt-6 flex justify-end">
-        <button
-          onClick={onSaveGeometry}
-          disabled={isSavingGeometry}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
-        >
-          {isSavingGeometry ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save Geometry
-        </button>
-      </div>
+
     </GlassCard>
   );
 }

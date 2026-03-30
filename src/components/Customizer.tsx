@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { RefreshCw, Code } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { RefreshCw, Code, ChevronDown, ChevronUp, LayoutGrid } from "lucide-react";
 import { GlassCard } from "./GlassCard";
 import { LivePreview } from "./LivePreview";
 import { cn } from "../lib/utils";
@@ -11,8 +11,10 @@ export interface CustomizerProps {
   widgets: Widget[];
   selectedWidget: Widget | null;
   setSelectedWidget: (widget: Widget | null) => void;
-  updateGeometry: (widget: Widget, key: keyof Widget['geometry'], value: number) => void;
+  updateGeometry: (widget: Widget, key: keyof Widget['geometry'], value: string | number) => void;
   resetGeometry: () => void;
+  onSaveGeometry: (widget: Widget) => Promise<boolean>;
+  liveUpdate: boolean;
   monitorSize: { width: number; height: number };
 }
 
@@ -22,31 +24,63 @@ export function Customizer({
   setSelectedWidget,
   updateGeometry,
   resetGeometry,
+  onSaveGeometry,
+  liveUpdate,
   monitorSize,
 }: CustomizerProps) {
   const [yuckContent, setYuckContent] = useState("");
   const [scssContent, setScssContent] = useState("");
-  const [editorTab, setEditorTab] = useState<'yuck' | 'scss'>('yuck');
-  
+  const [variablesContent, setVariablesContent] = useState("");
+  const [editorTab, setEditorTab] = useState<'yuck' | 'scss' | 'variables'>('yuck');
+
   const [isSavingGeometry, setIsSavingGeometry] = useState(false);
   const [isSavingYuck, setIsSavingYuck] = useState(false);
   const [isSavingScss, setIsSavingScss] = useState(false);
+  const [isSavingVariables, setIsSavingVariables] = useState(false);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [activeMode, setActiveMode] = useState<'visual' | 'manual'>('visual');
 
 
   useEffect(() => {
     if (selectedWidget) {
       const loadContent = async () => {
         try {
+          // 1. Load Layout (Yuck)
           const yuck = await commands.readWidgetYuck(selectedWidget.yuck_path);
           setYuckContent(yuck);
-          
-          try {
-             const scss = await commands.readWidgetScss(selectedWidget.yuck_path);
-             setScssContent(scss);
-          } catch (e) {
-             console.log("No SCSS found or failed to load:", e);
-             setScssContent("");
+
+          // 2. Load Styles (SCSS)
+          if (selectedWidget.scss_path) {
+            try {
+              const scss = await commands.readWidgetYuck(selectedWidget.scss_path);
+              setScssContent(scss);
+            } catch (e) {
+              console.log("Failed to load SCSS from explicit path:", e);
+              setScssContent("");
+            }
+          } else {
+            // Fallback for legacy widgets
+            try {
+              const scss = await commands.readWidgetScss(selectedWidget.yuck_path);
+              setScssContent(scss);
+            } catch (e) {
+              setScssContent("");
+            }
           }
+
+          // 3. Load Variables
+          if (selectedWidget.variables_path) {
+            try {
+              const vars = await commands.readWidgetYuck(selectedWidget.variables_path);
+              setVariablesContent(vars);
+            } catch (e) {
+              console.log("Failed to load variables.yuck:", e);
+              setVariablesContent("");
+            }
+          } else {
+            setVariablesContent("");
+          }
+
         } catch (err) {
           console.error("Failed to load widget content:", err);
         }
@@ -56,26 +90,46 @@ export function Customizer({
       // Clear editor state when no widget is selected to avoid showing stale content
       setYuckContent("");
       setScssContent("");
+      setVariablesContent("");
       setEditorTab("yuck");
     }
   }, [selectedWidget]);
 
+  // Sync content when switching to manual mode to ensure code editor has latest changes
+  useEffect(() => {
+    if (activeMode === 'manual' && selectedWidget) {
+      const refreshContent = async () => {
+        try {
+          const yuck = await commands.readWidgetYuck(selectedWidget.yuck_path);
+          setYuckContent(yuck);
+
+          if (selectedWidget.scss_path) {
+            const scss = await commands.readWidgetYuck(selectedWidget.scss_path);
+            setScssContent(scss);
+          } else {
+            const scss = await commands.readWidgetScss(selectedWidget.yuck_path);
+            setScssContent(scss);
+          }
+
+          if (selectedWidget.variables_path) {
+            const vars = await commands.readWidgetYuck(selectedWidget.variables_path);
+            setVariablesContent(vars);
+          }
+        } catch (err) {
+          console.error("Failed to sync content for manual mode:", err);
+        }
+      };
+      refreshContent();
+    }
+  }, [activeMode, selectedWidget]);
+
   const saveGeometry = async () => {
     if (!selectedWidget) return;
     setIsSavingGeometry(true);
-    try {
-      await commands.updateWidgetGeometry(
-        selectedWidget.yuck_path,
-        selectedWidget.geometry.x,
-        selectedWidget.geometry.y,
-        selectedWidget.geometry.width,
-        selectedWidget.geometry.height
-      );
-      setIsSavingGeometry(false);
-
-    } catch (err) {
-      console.error("Failed to save geometry:", err);
-      setIsSavingGeometry(false);
+    const success = await onSaveGeometry(selectedWidget);
+    setIsSavingGeometry(false);
+    if (success) {
+      // Optional: show toast
     }
   };
 
@@ -96,14 +150,30 @@ export function Customizer({
     if (!selectedWidget) return;
     setIsSavingScss(true);
     try {
-      await commands.writeWidgetScss(selectedWidget.yuck_path, scssContent);
+      if (selectedWidget.scss_path) {
+        await commands.writeWidgetYuck(selectedWidget.scss_path, scssContent);
+      } else {
+        await commands.writeWidgetScss(selectedWidget.yuck_path, scssContent);
+      }
       setIsSavingScss(false);
-
     } catch (err) {
       console.error("Failed to save scss:", err);
       setIsSavingScss(false);
     }
   };
+
+  const saveVariables = async () => {
+    if (!selectedWidget || !selectedWidget.variables_path) return;
+    setIsSavingVariables(true);
+    try {
+      await commands.writeWidgetYuck(selectedWidget.variables_path, variablesContent);
+      setIsSavingVariables(false);
+    } catch (err) {
+      console.error("Failed to save variables:", err);
+      setIsSavingVariables(false);
+    }
+  };
+
 
   return (
     <motion.div
@@ -115,65 +185,108 @@ export function Customizer({
     >
       <header>
         <h1 className="text-4xl font-black tracking-tight mb-2 text-white">CUSTOMIZER</h1>
-        <p className="text-white/40 font-medium">Fine-tune widget geometry and appearance.</p>
+        <p className="text-white/40 font-medium">Fine-tune widget geometry and source code.</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 space-y-6">
-          <GlassCard>
-            <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest mb-6">Select Widget</h3>
-            <div className="space-y-2">
-              {widgets.map(w => (
-                <button
-                  key={w.id}
-                  onClick={() => setSelectedWidget(w)}
-                  className={cn(
-                    "w-full text-left px-4 py-3 rounded-xl transition-all border",
-                    selectedWidget?.id === w.id
-                      ? "bg-blue-600 border-transparent text-white"
-                      : "bg-[#2c2c2c] border-transparent text-gray-400 hover:bg-[#3d3d3d] hover:text-white"
-                  )}
-                >
-                  <div className="font-bold">{w.name}</div>
-                  <div className="text-[10px] uppercase tracking-wider opacity-60 mt-1">{w.status}</div>
-                </button>
-              ))}
-            </div>
-          </GlassCard>
-
-          {selectedWidget && (
-            <GlassCard>
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Geometry</h3>
-                <button
-                  onClick={resetGeometry}
-                  className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Reset
-                </button>
-              </div>
-              <div className="space-y-6">
-                {(['x', 'y', 'width', 'height'] as const).map(key => (
-                  <div key={key}>
-                    <div className="flex justify-between text-xs font-bold mb-2 uppercase tracking-widest italic opacity-60">
-                      <span>{key}</span>
-                      <span className="text-blue-400">{selectedWidget.geometry[key]}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max={key === 'x' || key === 'width' ? monitorSize.width : monitorSize.height}
-                      value={selectedWidget.geometry[key]}
-                      onChange={(e) => updateGeometry(selectedWidget, key, parseInt(e.target.value))}
-                      className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-                ))}
-              </div>
-            </GlassCard>
-          )}
+      <GlassCard className="overflow-visible z-50 w-full mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Select Widget & Mode</h3>
+          <div className="flex items-center gap-2 bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
+            <RefreshCw className={cn("w-3 h-3", (isSavingGeometry || isSavingYuck || isSavingScss || isSavingVariables) && "animate-spin")} />
+            {activeMode === 'visual' ? 'Tweaking Layout' : 'Editing Source'}
+          </div>
         </div>
+
+        <div className="flex gap-4 items-center">
+          <div className="relative flex-1">
+            <button
+              onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+              className={cn(
+                "w-full h-[60px] flex items-center justify-between px-4 py-3 rounded-xl transition-all border shadow-lg group",
+                selectedWidget
+                  ? "bg-blue-600 border-transparent text-white ring-4 ring-blue-600/10"
+                  : "bg-[#2c2c2c] border-[#3d3d3d] text-gray-400"
+              )}
+            >
+              <div className="flex flex-col items-start overflow-hidden text-left">
+                <span className="font-black tracking-tight text-sm truncate w-full uppercase">
+                  {selectedWidget ? selectedWidget.name : "SELECT A WIDGET"}
+                </span>
+                {selectedWidget && (
+                  <span className="text-[10px] uppercase tracking-wider opacity-60 font-medium">
+                    {selectedWidget.status}
+                  </span>
+                )}
+              </div>
+              {isSelectorOpen ? (
+                <ChevronUp className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+              ) : (
+                <ChevronDown className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+              )}
+            </button>
+
+            <AnimatePresence>
+              {isSelectorOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 5, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  className="absolute top-full left-0 right-0 mt-2 bg-[#1e1e1e] border border-white/5 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[100] backdrop-blur-xl"
+                >
+                  <div className="p-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                    {widgets.map(w => (
+                      <button
+                        key={w.id}
+                        onClick={() => {
+                          setSelectedWidget(w);
+                          setIsSelectorOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-lg transition-all mb-1 last:mb-0 flex items-center justify-between group",
+                          selectedWidget?.id === w.id
+                            ? "bg-blue-500/10 text-blue-400"
+                            : "text-gray-400 hover:bg-white/5 hover:text-white"
+                        )}
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm">{w.name}</span>
+                          <span className="text-[9px] uppercase tracking-widest opacity-50">{w.status}</span>
+                        </div>
+                        {selectedWidget?.id === w.id && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(37,99,235,0.8)]" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="flex bg-[#121212] rounded-xl p-1 border border-[#2c2c2c] h-[60px] shrink-0">
+            <button
+              onClick={() => setActiveMode('visual')}
+              className={cn(
+                "px-6 rounded-lg text-[10px] font-black transition-all flex flex-col items-center justify-center gap-1",
+                activeMode === 'visual' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white"
+              )}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>VISUAL</span>
+            </button>
+            <button
+              onClick={() => setActiveMode('manual')}
+              className={cn(
+                "px-6 rounded-lg text-[10px] font-black transition-all flex flex-col items-center justify-center gap-1",
+                activeMode === 'manual' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white"
+              )}
+            >
+              <Code className="w-3.5 h-3.5" />
+              <span>MANUAL</span>
+            </button>
+          </div>
+        </div>
+      </GlassCard>
 
             <div className="lg:col-span-2 space-y-6">
               <LivePreview

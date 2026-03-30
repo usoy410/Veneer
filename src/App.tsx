@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Dashboard } from "./components/Dashboard";
 import { Library } from "./components/Library";
 import { Customizer } from "./components/Customizer";
 import { Settings } from "./components/Settings";
+import { Onboarding } from "./components/Onboarding";
 import { useEww } from "./hooks/useEww";
 import { useWidgets } from "./hooks/useWidgets";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,6 +18,8 @@ function App() {
   const [selectedWidget, setSelectedWidget] = useState<Widget | null>(null);
   const [libraryView, setLibraryView] = useState<'local' | 'community'>('local');
   const [maximizedPreview, setMaximizedPreview] = useState<string | null>(null);
+  const [liveUpdate, setLiveUpdate] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { isEwwReady, isEwwRunning, monitorSize, isRestarting, restartEww, killEww } = useEww();
   const {
@@ -29,6 +32,25 @@ function App() {
     toggleWidget,
     fetchCommunityWidgets
   } = useWidgets();
+
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        const isReady = await commands.checkEww();
+        if (!isReady) {
+          setShowOnboarding(true);
+          return;
+        }
+        await commands.syncAndRestartEww();
+        await fetchLocalWidgets(true);
+        await commands.executeStartupScripts();
+      } catch (err) {
+        console.error("Failed to initialize app:", err);
+      }
+    };
+    initApp();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCustomize = (widget: Widget) => {
     setSelectedWidget(widget);
@@ -49,20 +71,41 @@ function App() {
         geometry.x,
         geometry.y,
         geometry.width,
-        geometry.height
+        geometry.height,
+        geometry.stacking
       );
     } catch (err) {
       console.error("Failed to update geometry:", err);
     }
   }, 100);
 
-  const updateGeometry = (widget: Widget, key: keyof Widget['geometry'], value: number) => {
+  const updateGeometry = (widget: Widget, key: keyof Widget['geometry'], value: string | number) => {
     const newGeometry = { ...widget.geometry, [key]: value };
     setWidgets(prev => prev.map(w => w.id === widget.id ? { ...w, geometry: newGeometry } : w));
     if (selectedWidget?.id === widget.id) {
       setSelectedWidget({ ...selectedWidget, geometry: newGeometry });
     }
-    debouncedUpdateGeometry(widget.yuck_path, newGeometry);
+    
+    if (liveUpdate) {
+      debouncedUpdateGeometry(widget.yuck_path, newGeometry);
+    }
+  };
+
+  const saveGeometry = async (widget: Widget) => {
+    try {
+      await commands.updateWidgetGeometry(
+        widget.yuck_path,
+        widget.geometry.x,
+        widget.geometry.y,
+        widget.geometry.width,
+        widget.geometry.height,
+        widget.geometry.stacking
+      );
+      return true;
+    } catch (err) {
+      console.error("Failed to save geometry:", err);
+      return false;
+    }
   };
 
   const resetGeometry = () => {
@@ -75,6 +118,11 @@ function App() {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans selection:bg-blue-500/30">
+      <AnimatePresence>
+        {showOnboarding && (
+          <Onboarding onComplete={() => setShowOnboarding(false)} />
+        )}
+      </AnimatePresence>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="flex-1 p-10 overflow-y-auto custom-scrollbar" style={{ touchAction: 'pan-y' }}>
@@ -113,6 +161,8 @@ function App() {
               setSelectedWidget={setSelectedWidget}
               updateGeometry={updateGeometry}
               resetGeometry={resetGeometry}
+              onSaveGeometry={saveGeometry}
+              liveUpdate={liveUpdate}
               monitorSize={monitorSize}
             />
           )}
@@ -123,6 +173,9 @@ function App() {
               isRestarting={isRestarting}
               restartEww={restartEww}
               killEww={killEww}
+              liveUpdate={liveUpdate}
+              setLiveUpdate={setLiveUpdate}
+              setShowOnboarding={setShowOnboarding}
             />
           )}
         </AnimatePresence>
