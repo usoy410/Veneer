@@ -15,6 +15,7 @@ export interface Widget {
     y: number;
     width: number;
     height: number;
+    stacking: 'bg' | 'fg';
   };
   windows: string[];
   preview?: string;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Code, ChevronDown, ChevronUp, LayoutGrid, Type, Palette } from "lucide-react";
+import { RefreshCw, Code, ChevronDown, ChevronUp, LayoutGrid } from "lucide-react";
 import { GlassCard } from "./GlassCard";
 import { LivePreview } from "./LivePreview";
 import { cn } from "../lib/utils";
@@ -11,7 +11,7 @@ export interface CustomizerProps {
   widgets: Widget[];
   selectedWidget: Widget | null;
   setSelectedWidget: (widget: Widget | null) => void;
-  updateGeometry: (widget: Widget, key: keyof Widget['geometry'], value: number) => void;
+  updateGeometry: (widget: Widget, key: keyof Widget['geometry'], value: string | number) => void;
   resetGeometry: () => void;
   onSaveGeometry: (widget: Widget) => Promise<boolean>;
   liveUpdate: boolean;
@@ -37,13 +37,8 @@ export function Customizer({
   const [isSavingYuck, setIsSavingYuck] = useState(false);
   const [isSavingScss, setIsSavingScss] = useState(false);
   const [isSavingVariables, setIsSavingVariables] = useState(false);
-  const [isSavingAppearance, setIsSavingAppearance] = useState(false);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [activeMode, setActiveMode] = useState<'visual' | 'manual'>('visual');
-
-  const [allClasses, setAllClasses] = useState<string[]>([]);
-  const [selectedClass, setSelectedClass] = useState<string>("");
-  const [classStyles, setClassStyles] = useState<Record<string, { fontSize: number; color: string }>>({});
 
 
   useEffect(() => {
@@ -73,52 +68,6 @@ export function Customizer({
             }
           }
 
-          // 3. Load Classes and Appearance
-          const classes = await commands.getWidgetClasses(selectedWidget.yuck_path);
-          setAllClasses(classes);
-          if (classes.length > 0) {
-            setSelectedClass(classes[0]);
-          } else {
-            setSelectedClass("window");
-            setAllClasses(["window"]);
-          }
-
-          const scss = selectedWidget.scss_path 
-            ? await commands.readWidgetYuck(selectedWidget.scss_path)
-            : await commands.readWidgetScss(selectedWidget.yuck_path);
-
-          const newStyles: Record<string, { fontSize: number; color: string }> = {};
-          
-          // Default styles for all classes
-          const baseClasses = classes.length > 0 ? classes : ["window"];
-          baseClasses.forEach(c => {
-            newStyles[c] = { fontSize: 16, color: "#ffffff" };
-          });
-
-          // Extract current appearance from SCSS if VENEER_CUSTOM_STYLES block exists
-          const customBlockMatch = scss.match(/\/\* VENEER_CUSTOM_STYLES \*\/([\s\S]*?)\/\* END_VENEER_CUSTOM_STYLES \*\//);
-          if (customBlockMatch) {
-            const blockContent = customBlockMatch[1];
-            baseClasses.forEach(c => {
-              const classRegex = new RegExp(`\\.${c}\\s*\\{[^}]*font-size:\\s*(\\d+)px(?:;[^}]*|[^}]*)color:\\s*(#[0-9a-fA-F]{3,6})`);
-              const match = blockContent.match(classRegex);
-              if (match) {
-                newStyles[c] = {
-                  fontSize: parseInt(match[1]),
-                  color: match[2]
-                };
-              } else {
-                // Try individual matches if the joined one fails
-                const fontSizeMatch = blockContent.match(new RegExp(`\\.${c}[^{]*\\{[^}]*font-size:\\s*(\\d+)px`));
-                const colorMatch = blockContent.match(new RegExp(`\\.${c}[^{]*\\{[^}]*color:\\s*(#[0-9a-fA-F]{3,6})`));
-                if (fontSizeMatch) newStyles[c].fontSize = parseInt(fontSizeMatch[1]);
-                if (colorMatch) newStyles[c].color = colorMatch[1];
-              }
-            });
-          }
-          
-          setClassStyles(newStyles);
-
           // 3. Load Variables
           if (selectedWidget.variables_path) {
             try {
@@ -143,11 +92,36 @@ export function Customizer({
       setScssContent("");
       setVariablesContent("");
       setEditorTab("yuck");
-      setAllClasses([]);
-      setSelectedClass("");
-      setClassStyles({});
     }
   }, [selectedWidget]);
+
+  // Sync content when switching to manual mode to ensure code editor has latest changes
+  useEffect(() => {
+    if (activeMode === 'manual' && selectedWidget) {
+      const refreshContent = async () => {
+        try {
+          const yuck = await commands.readWidgetYuck(selectedWidget.yuck_path);
+          setYuckContent(yuck);
+          
+          if (selectedWidget.scss_path) {
+            const scss = await commands.readWidgetYuck(selectedWidget.scss_path);
+            setScssContent(scss);
+          } else {
+            const scss = await commands.readWidgetScss(selectedWidget.yuck_path);
+            setScssContent(scss);
+          }
+
+          if (selectedWidget.variables_path) {
+            const vars = await commands.readWidgetYuck(selectedWidget.variables_path);
+            setVariablesContent(vars);
+          }
+        } catch (err) {
+          console.error("Failed to sync content for manual mode:", err);
+        }
+      };
+      refreshContent();
+    }
+  }, [activeMode, selectedWidget]);
 
   const saveGeometry = async () => {
     if (!selectedWidget) return;
@@ -200,34 +174,6 @@ export function Customizer({
     }
   };
 
-  const saveAppearance = async () => {
-    if (!selectedWidget) return;
-    setIsSavingAppearance(true);
-    try {
-      const stylesPayload = Object.entries(classStyles).map(([cls, style]) => ({
-        class: cls,
-        font_size: style.fontSize,
-        color: style.color
-      }));
-
-      await commands.updateWidgetAppearance(
-        selectedWidget.yuck_path,
-        selectedWidget.scss_path || null,
-        stylesPayload
-      );
-      
-      // Refresh SCSS content in editor to reflect changes
-      const updatedScss = selectedWidget.scss_path 
-        ? await commands.readWidgetYuck(selectedWidget.scss_path)
-        : await commands.readWidgetScss(selectedWidget.yuck_path);
-      setScssContent(updatedScss);
-      
-      setIsSavingAppearance(false);
-    } catch (err) {
-      console.error("Failed to save appearance:", err);
-      setIsSavingAppearance(false);
-    }
-  };
 
   return (
     <motion.div
@@ -239,15 +185,15 @@ export function Customizer({
     >
       <header>
         <h1 className="text-4xl font-black tracking-tight mb-2 text-white">CUSTOMIZER</h1>
-        <p className="text-white/40 font-medium">Fine-tune widget geometry and appearance.</p>
+        <p className="text-white/40 font-medium">Fine-tune widget geometry and source code.</p>
       </header>
 
       <GlassCard className="overflow-visible z-50 w-full mb-8">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Select Widget & Mode</h3>
           <div className="flex items-center gap-2 bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
-            <RefreshCw className={cn("w-3 h-3", (isSavingGeometry || isSavingYuck || isSavingScss || isSavingAppearance) && "animate-spin")} />
-            {activeMode === 'visual' ? 'Customizing' : 'Editing'}
+            <RefreshCw className={cn("w-3 h-3", (isSavingGeometry || isSavingYuck || isSavingScss || isSavingVariables) && "animate-spin")} />
+            {activeMode === 'visual' ? 'Tweaking Layout' : 'Editing Source'}
           </div>
         </div>
         
@@ -351,141 +297,91 @@ export function Customizer({
             exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-1 lg:grid-cols-3 gap-8"
           >
-            <div className="lg:col-span-1 space-y-6">
-
-          {selectedWidget && (
-            <GlassCard>
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Geometry</h3>
-                <button
-                  onClick={resetGeometry}
-                  className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Reset
-                </button>
-              </div>
-              <div className="space-y-6">
-                {(['x', 'y', 'width', 'height'] as const).map(key => (
-                  <div key={key}>
-                    <div className="flex justify-between text-xs font-bold mb-2 uppercase tracking-widest italic opacity-60">
-                      <span>{key}</span>
-                      <span className="text-blue-400">{selectedWidget.geometry[key]}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max={key === 'x' || key === 'width' ? monitorSize.width : monitorSize.height}
-                      value={selectedWidget.geometry[key]}
-                      onChange={(e) => updateGeometry(selectedWidget, key, parseInt(e.target.value))}
-                      className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
+            <div className="lg:col-span-1">
+              {selectedWidget && (
+                <GlassCard className="h-full flex flex-col">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Geometry</h3>
+                    <button
+                      onClick={resetGeometry}
+                      className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Reset
+                    </button>
                   </div>
-                ))}
-              </div>
-            </GlassCard>
-          )}
-
-          {selectedWidget && (
-            <GlassCard>
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Appearance</h3>
-                <div className="flex items-center gap-1.5 opacity-40">
-                  <Palette className="w-3.5 h-3.5" />
-                </div>
-              </div>
-              <div className="space-y-8">
-                {/* Class Selector */}
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2 block">
-                    Target Element
-                  </label>
-                  <select
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                    className="w-full bg-[#121212] border border-[#2c2c2c] rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-blue-600 appearance-none cursor-pointer"
-                  >
-                    {allClasses.map(cls => (
-                      <option key={cls} value={cls}>.{cls}</option>
+                  
+                  <div className="space-y-6 flex-1">
+                    {(['x', 'y', 'width', 'height'] as const).map(key => (
+                      <div key={key}>
+                        <div className="flex justify-between text-xs font-bold mb-2 uppercase tracking-widest italic opacity-60">
+                          <span>{key}</span>
+                          <span className="text-blue-400">{selectedWidget.geometry[key]}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max={key === 'x' || key === 'width' ? monitorSize.width : monitorSize.height}
+                          value={selectedWidget.geometry[key]}
+                          onChange={(e) => updateGeometry(selectedWidget, key, parseInt(e.target.value))}
+                          className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                      </div>
                     ))}
-                  </select>
-                </div>
 
-                <div>
-                  <div className="flex justify-between text-xs font-bold mb-3 uppercase tracking-widest italic opacity-60 items-center">
-                    <div className="flex items-center gap-2">
-                      <Type className="w-3 h-3 text-blue-400" />
-                      <span>Font Size</span>
+                    <div className="pt-4 border-t border-white/5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-3 block">
+                        Stacking Mode
+                      </label>
+                      <div className="flex bg-[#121212] rounded-xl p-1 border border-[#2c2c2c]">
+                        <button
+                          onClick={() => updateGeometry(selectedWidget, 'stacking', 'fg')}
+                          className={cn(
+                            "flex-1 py-2 rounded-lg text-[10px] font-black transition-all",
+                            selectedWidget.geometry.stacking === 'fg' 
+                              ? "bg-blue-600 text-white shadow-lg" 
+                              : "text-white/40 hover:text-white"
+                          )}
+                        >
+                          FOREGROUND (FG)
+                        </button>
+                        <button
+                          onClick={() => updateGeometry(selectedWidget, 'stacking', 'bg')}
+                          className={cn(
+                            "flex-1 py-2 rounded-lg text-[10px] font-black transition-all",
+                            selectedWidget.geometry.stacking === 'bg' 
+                              ? "bg-blue-600 text-white shadow-lg" 
+                              : "text-white/40 hover:text-white"
+                          )}
+                        >
+                          BACKGROUND (BG)
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-blue-400">{classStyles[selectedClass]?.fontSize || 16}px</span>
                   </div>
-                  <input
-                    type="range"
-                    min="8"
-                    max="120"
-                    value={classStyles[selectedClass]?.fontSize || 16}
-                    onChange={(e) => {
-                      const newSize = parseInt(e.target.value);
-                      setClassStyles(prev => ({
-                        ...prev,
-                        [selectedClass]: { ...prev[selectedClass], fontSize: newSize }
-                      }));
-                    }}
-                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  />
-                </div>
 
-                <div>
-                  <div className="flex justify-between text-xs font-bold mb-3 uppercase tracking-widest italic opacity-60 items-center">
-                    <div className="flex items-center gap-2">
-                        <Palette className="w-3 h-3 text-blue-400" />
-                        <span>Text Color</span>
-                    </div>
-                    <span className="text-blue-400 font-mono">{(classStyles[selectedClass]?.color || "#FFFFFF").toUpperCase()}</span>
-                  </div>
-                  <div className="flex gap-4 items-center">
-                    <div 
-                      className="w-10 h-10 rounded-xl border border-white/10 shadow-lg shrink-0" 
-                      style={{ backgroundColor: classStyles[selectedClass]?.color || "#ffffff" }}
-                    />
-                    <input
-                      type="color"
-                      value={classStyles[selectedClass]?.color || "#ffffff"}
-                      onChange={(e) => {
-                        const newColor = e.target.value;
-                        setClassStyles(prev => ({
-                          ...prev,
-                          [selectedClass]: { ...prev[selectedClass], color: newColor }
-                        }));
-                      }}
-                      className="flex-1 h-10 bg-white/5 border border-white/10 rounded-xl px-1 py-1 cursor-pointer appearance-none block"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={saveAppearance}
-                  disabled={isSavingAppearance}
-                  className={cn(
-                    "w-full py-3 rounded-xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 border",
-                    isSavingAppearance 
-                      ? "bg-white/5 border-white/5 text-white/20" 
-                      : "bg-blue-600/10 border-blue-500/20 text-blue-400 hover:bg-blue-600/20 hover:border-blue-500/40"
-                  )}
-                >
-                  {isSavingAppearance ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Palette className="w-4 h-4" />
-                      Apply Appearance
-                    </>
-                  )}
-                </button>
-              </div>
-            </GlassCard>
-          )}
-        </div>
+                  <button
+                    onClick={saveGeometry}
+                    disabled={isSavingGeometry}
+                    className={cn(
+                      "w-full py-4 rounded-xl font-black mt-8 transition-all active:scale-[0.98] flex items-center justify-center gap-2 border uppercase tracking-widest text-[11px]",
+                      isSavingGeometry 
+                        ? "bg-white/5 border-white/5 text-white/20" 
+                        : "bg-blue-600 text-white border-transparent shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_30px_rgba(37,99,235,0.3)] hover:-translate-y-0.5"
+                    )}
+                  >
+                    {isSavingGeometry ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Apply Changes
+                      </>
+                    )}
+                  </button>
+                </GlassCard>
+              )}
+            </div>
 
         <div className="lg:col-span-2 space-y-6">
           <LivePreview

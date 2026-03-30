@@ -71,14 +71,15 @@ function App() {
         geometry.x,
         geometry.y,
         geometry.width,
-        geometry.height
+        geometry.height,
+        geometry.stacking
       );
     } catch (err) {
       console.error("Failed to update geometry:", err);
     }
   }, 100);
 
-  const updateGeometry = (widget: Widget, key: keyof Widget['geometry'], value: number) => {
+  const updateGeometry = (widget: Widget, key: keyof Widget['geometry'], value: string | number) => {
     const newGeometry = { ...widget.geometry, [key]: value };
     setWidgets(prev => prev.map(w => w.id === widget.id ? { ...w, geometry: newGeometry } : w));
     if (selectedWidget?.id === widget.id) {
@@ -97,7 +98,8 @@ function App() {
         widget.geometry.x,
         widget.geometry.y,
         widget.geometry.width,
-        widget.geometry.height
+        widget.geometry.height,
+        widget.geometry.stacking
       );
       return true;
     } catch (err) {

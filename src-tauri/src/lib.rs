@@ -231,6 +231,7 @@ async fn update_widget_geometry(
     y: i32,
     width: i32,
     height: i32,
+    stacking: String,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let yuck_path = PathBuf::from(yuck_path);
@@ -259,6 +260,17 @@ async fn update_widget_geometry(
             .replace(&content, &format!(":height {}", height))
             .to_string();
 
+        let re_stack = regex::Regex::new(r#":stacking\s+"([^"]*)""#).unwrap();
+        if re_stack.is_match(&content) {
+            content = re_stack.replace(&content, &format!(r#":stacking "{}""#, stacking)).to_string();
+        } else {
+            // Try to insert it after geometry if missing
+            let re_geo_end = regex::Regex::new(r"(:geometry\s+\(geometry[^)]+\))").unwrap();
+            if re_geo_end.is_match(&content) {
+                content = re_geo_end.replace(&content, &format!(r#"$1 :stacking "{}""#, stacking)).to_string();
+            }
+        }
+
         fs::write(&yuck_path, content).map_err(|e| e.to_string())?;
 
         // Reload eww
@@ -272,92 +284,6 @@ async fn update_widget_geometry(
     .map_err(|e| e.to_string())?
 }
 
-#[derive(serde::Deserialize)]
-struct ClassStyle {
-    class: String,
-    font_size: i32,
-    color: String,
-}
-
-#[tauri::command]
-async fn update_widget_appearance(
-    yuck_path: String,
-    scss_path: Option<String>,
-    styles: Vec<ClassStyle>,
-) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let yuck_file = PathBuf::from(&yuck_path);
-        if !yuck_file.exists() {
-            return Err(format!("Yuck file not found: {:?}", yuck_path));
-        }
-
-        // Determine SCSS path if not provided
-        let scss_file = if let Some(path) = scss_path {
-            PathBuf::from(path)
-        } else {
-            yuck_file.parent().unwrap().join("style.scss")
-        };
-
-        let mut scss_content = if scss_file.exists() {
-            fs::read_to_string(&scss_file).map_err(|e| e.to_string())?
-        } else {
-            String::new()
-        };
-
-        let mut rules = Vec::new();
-        for style in styles {
-            rules.push(format!(
-                ".{} {{ font-size: {}px; color: {}; }}",
-                style.class, style.font_size, style.color
-            ));
-        }
-
-        let custom_block = format!(
-            "/* VENEER_CUSTOM_STYLES */\n{}\n/* END_VENEER_CUSTOM_STYLES */",
-            rules.join("\n")
-        );
-
-        let re_block = regex::Regex::new(r"(?s)/\* VENEER_CUSTOM_STYLES \*/.*?/\* END_VENEER_CUSTOM_STYLES \*/").unwrap();
-        
-        if re_block.is_match(&scss_content) {
-            scss_content = re_block.replace(&scss_content, &custom_block).to_string();
-        } else {
-            if !scss_content.is_empty() && !scss_content.ends_with('\n') {
-                scss_content.push('\n');
-            }
-            scss_content.push_str(&custom_block);
-        }
-
-        fs::write(&scss_file, scss_content).map_err(|e| e.to_string())?;
-
-        // Reload eww
-        let _ = Command::new("eww")
-            .args(["--config", &get_eww_config_path(), "reload"])
-            .status();
-
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
-
-// Command to scan a yuck file for all unique class names
-#[tauri::command]
-async fn get_widget_classes(yuck_path: String) -> Result<Vec<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let content = fs::read_to_string(yuck_path).map_err(|e| e.to_string())?;
-        let re_class = regex::Regex::new(r#":class\s+"([^"]+)""#).unwrap();
-        let mut classes: Vec<String> = re_class
-            .captures_iter(&content)
-            .map(|c| c[1].to_string())
-            .collect();
-        classes.sort();
-        classes.dedup();
-        Ok(classes)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-}
 
 #[derive(serde::Serialize)]
 struct WidgetInfo {
@@ -388,6 +314,7 @@ struct Geometry {
     y: i32,
     width: i32,
     height: i32,
+    stacking: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -608,6 +535,7 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                         y: 0,
                         width: 200,
                         height: 100,
+                        stacking: "bg".to_string(),
                     };
                     let mut variables_path = None;
                     let mut first_yuck_path = String::new();
@@ -765,6 +693,7 @@ fn extract_geometry(content: &str, screen_w: i32, screen_h: i32) -> Geometry {
     let re_y = regex::Regex::new(r#":y\s+("[^"]*"|[\d.-]+%?|[\d.-]+px|[\d.-]+)"#).unwrap();
     let re_w = regex::Regex::new(r#":width\s+("[^"]*"|[\d.-]+%?|[\d.-]+px|[\d.-]+)"#).unwrap();
     let re_h = regex::Regex::new(r#":height\s+("[^"]*"|[\d.-]+%?|[\d.-]+px|[\d.-]+)"#).unwrap();
+    let re_stack = regex::Regex::new(r#":stacking\s+"([^"]*)""#).unwrap();
 
     let x_raw = re_x
         .captures(content)
@@ -786,12 +715,18 @@ fn extract_geometry(content: &str, screen_w: i32, screen_h: i32) -> Geometry {
         .and_then(|c| c.get(1))
         .map(|m| m.as_str())
         .unwrap_or("100");
+    let stacking = re_stack
+        .captures(content)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
+        .unwrap_or_else(|| "bg".to_string());
 
     Geometry {
         x: parse_eww_value(x_raw, screen_w),
         y: parse_eww_value(y_raw, screen_h),
         width: parse_eww_value(w_raw, screen_w),
         height: parse_eww_value(h_raw, screen_h),
+        stacking,
     }
 }
 
@@ -1171,7 +1106,6 @@ pub fn run() {
             install_widget,
             install_font,
             update_widget_geometry,
-            update_widget_appearance,
             scan_widgets,
             reload_eww,
             restart_eww,
@@ -1194,7 +1128,6 @@ pub fn run() {
             save_active_widgets,
             load_active_widgets,
             execute_startup_scripts,
-            get_widget_classes
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

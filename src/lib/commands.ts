@@ -73,9 +73,10 @@ export async function updateWidgetGeometry(
   x: number, 
   y: number, 
   width: number, 
-  height: number
+  height: number,
+  stacking: string
 ): Promise<void> {
-  return invoke<void>("update_widget_geometry", { yuckPath, x, y, width, height });
+  return invoke<void>("update_widget_geometry", { yuckPath, x, y, width, height, stacking });
 }
 
 /**
@@ -183,20 +184,3 @@ export async function executeStartupScripts(): Promise<void> {
   return invoke<void>("execute_startup_scripts");
 }
 
-/**
- * Updates the visual appearance (font size, color) for multiple classes in a widget.
- */
-export async function updateWidgetAppearance(
-  yuckPath: string,
-  scssPath: string | null,
-  styles: Array<{ class: string; font_size: number; color: string }>
-): Promise<void> {
-  return invoke<void>("update_widget_appearance", { yuckPath, scssPath, styles });
-}
-
-/**
- * Gets all unique class names from a yuck file.
- */
-export async function getWidgetClasses(yuckPath: string): Promise<string[]> {
-  return invoke<string[]>("get_widget_classes", { yuckPath });
-}
