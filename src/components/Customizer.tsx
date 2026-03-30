@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Code, ChevronDown, ChevronUp, LayoutGrid, Move, Layers, Maximize, Minimize, Plus, Minus } from "lucide-react";
+import { RefreshCw, Code, ChevronDown, ChevronUp, LayoutGrid, Move, Layers, Maximize, Minimize, Plus, Minus, Type, Palette } from "lucide-react";
 import { GlassCard } from "./GlassCard";
 import { LivePreview } from "./LivePreview";
 import { cn } from "../lib/utils";
@@ -83,7 +83,84 @@ export function Customizer({
   const [isSavingScss, setIsSavingScss] = useState(false);
   const [isSavingVariables, setIsSavingVariables] = useState(false);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [targetClass, setTargetClass] = useState("");
+  const [targetFontSize, setTargetFontSize] = useState<number>(14);
+  const [targetColor, setTargetColor] = useState("#ffffff");
+  const [availableClasses, setAvailableClasses] = useState<string[]>([]);
   const [activeMode, setActiveMode] = useState<'visual' | 'manual'>('visual');
+
+  // Scan SCSS for classes
+  useEffect(() => {
+    if (activeMode === 'visual' && scssContent) {
+      const classRegex = /\.([a-zA-Z0-9_-]+)\s*\{/g;
+      const matches = Array.from(scssContent.matchAll(classRegex));
+      const classes = Array.from(new Set(matches.map(m => m[1])));
+      setAvailableClasses(classes);
+      if (classes.length > 0 && !targetClass) {
+        setTargetClass(classes[0]);
+      }
+    }
+  }, [scssContent, activeMode]);
+
+  // Sync state when targetClass changes
+  useEffect(() => {
+    if (targetClass && scssContent) {
+      const classRegex = new RegExp(`\\.${targetClass}\\s*{([^}]*)}`, 'i');
+      const match = scssContent.match(classRegex);
+      if (match) {
+        const block = match[1];
+        const sizeMatch = block.match(/font-size\s*:\s*(\d+)px/i);
+        const colorMatch = block.match(/color\s*:\s*(#[0-9a-f]{3,6}|[a-z]+)/i);
+        if (sizeMatch) setTargetFontSize(parseInt(sizeMatch[1]));
+        if (colorMatch) setTargetColor(colorMatch[1]);
+      }
+    }
+  }, [targetClass, scssContent]);
+
+  const applyWidgetSettings = async () => {
+    if (!selectedWidget) return;
+    setIsSavingGeometry(true);
+    
+    // 1. Save Geometry
+    await onSaveGeometry(selectedWidget);
+    
+    // 2. Save Styling changes if a class is targeted
+    if (targetClass) {
+      let updatedScss = scssContent;
+      const updates: Record<string, string> = {
+        'font-size': `${targetFontSize}px`,
+        'color': targetColor
+      };
+
+      const classRegex = new RegExp(`(\\.\\b${targetClass}\\b\\s*{[^}]*})`, 'i');
+      if (classRegex.test(updatedScss)) {
+        let block = updatedScss.match(classRegex)![0];
+        for (const [prop, val] of Object.entries(updates)) {
+          const propRegex = new RegExp(`(\\b${prop}\\b\\s*:\\s*)([^;]*)(;?)`, 'i');
+          if (propRegex.test(block)) {
+            block = block.replace(propRegex, `$1${val}$3`);
+          } else {
+            // Add as first property for clarity
+            block = block.replace(/(\s*{)/, `$1\n  ${prop}: ${val};`);
+          }
+        }
+        updatedScss = updatedScss.replace(classRegex, block);
+      } else {
+        const newRule = `\n\n.${targetClass} {\n${Object.entries(updates).map(([p, v]) => `  ${p}: ${v};`).join('\n')}\n}`;
+        updatedScss += newRule;
+      }
+
+      try {
+        const scssPath = selectedWidget.scss_path || selectedWidget.yuck_path;
+        await commands.writeWidgetScss(scssPath, updatedScss);
+        setScssContent(updatedScss);
+      } catch (err) {
+        console.error("Failed to save styling:", err);
+      }
+    }
+    
+    setIsSavingGeometry(false);
+  };
 
 
   useEffect(() => {
@@ -167,16 +244,6 @@ export function Customizer({
       refreshContent();
     }
   }, [activeMode, selectedWidget]);
-
-  const saveGeometry = async () => {
-    if (!selectedWidget) return;
-    setIsSavingGeometry(true);
-    const success = await onSaveGeometry(selectedWidget);
-    setIsSavingGeometry(false);
-    if (success) {
-      // Optional: show toast
-    }
-  };
 
   const saveYuck = async () => {
     if (!selectedWidget) return;
@@ -347,8 +414,8 @@ export function Customizer({
                 <GlassCard className="flex flex-col h-full bg-[#18181b]/50">
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                      <Move className="w-4 h-4" />
-                      Geometry Settings
+                      <LayoutGrid className="w-4 h-4" />
+                      Widget Settings
                     </h3>
                     <button
                       onClick={resetGeometry}
@@ -414,18 +481,69 @@ export function Customizer({
                         </button>
                       </div>
                     </div>
+
+                    <div className="pt-6 border-t border-white/5 space-y-6">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-white/20 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                          <Code className="w-2.5 h-2.5" /> Target CSS Class
+                        </label>
+                        <div className="relative group bg-[#121212] border border-[#2c2c2c] rounded-xl overflow-hidden focus-within:border-blue-600 transition-all">
+                          <select
+                            value={targetClass}
+                            onChange={(e) => setTargetClass(e.target.value)}
+                            className="w-full bg-transparent px-4 py-3 text-sm font-bold text-blue-100 outline-none appearance-none cursor-pointer"
+                          >
+                            <option value="" className="bg-[#18181b]">Select a class...</option>
+                            {availableClasses.map(cls => (
+                              <option key={cls} value={cls} className="bg-[#18181b]">.{cls}</option>
+                            ))}
+                          </select>
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">
+                            <ChevronDown className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <NumberStepper
+                          label="Font Size"
+                          value={targetFontSize}
+                          onChange={(val) => setTargetFontSize(val)}
+                          icon={Type}
+                        />
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-white/20 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                            <Palette className="w-2.5 h-2.5" /> Color
+                          </label>
+                          <div className="relative group bg-[#121212] border border-[#2c2c2c] rounded-xl overflow-hidden focus-within:border-blue-600 transition-all h-[40px] flex items-center px-4">
+                            <input
+                              type="color"
+                              value={targetColor}
+                              onChange={(e) => setTargetColor(e.target.value)}
+                              className="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0"
+                            />
+                            <input
+                              type="text"
+                              value={targetColor.toUpperCase()}
+                              onChange={(e) => setTargetColor(e.target.value)}
+                              className="flex-1 bg-transparent border-none text-xs font-black text-white/40 ml-2 outline-none uppercase tracking-widest"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </GlassCard>
               </div>
 
               <div className="lg:col-span-2 space-y-6">
-                <LivePreview
-                  selectedWidget={selectedWidget}
-                  monitorSize={monitorSize}
-                  isSavingGeometry={isSavingGeometry}
-                  onSaveGeometry={saveGeometry}
-                  liveUpdate={liveUpdate}
-                />
+                  <LivePreview
+                    selectedWidget={selectedWidget}
+                    monitorSize={monitorSize}
+                    isSavingGeometry={isSavingGeometry}
+                    onSaveGeometry={applyWidgetSettings}
+                    liveUpdate={liveUpdate}
+                  />
               </div>
             </div>
           </motion.div>

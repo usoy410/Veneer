@@ -33,7 +33,7 @@ export function LivePreview({
           // className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-50 h-9 shadow-lg border border-transparent"
           >
             {isSavingGeometry ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Geometry
+            Apply Changes
           </button>
         ) : (
           <div className="flex items-center gap-2 bg-orange-500/10 text-orange-400 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase h-9 border border-orange-500/20 shadow-sm">
