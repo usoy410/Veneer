@@ -19,6 +19,7 @@ export interface Widget {
   windows: string[];
   preview?: string;
   is_community?: boolean;
+  startup_scripts: string[];
 }
 
 /**

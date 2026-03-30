@@ -130,7 +130,6 @@ export function Dashboard({
                   <Terminal className="w-12 h-12 text-white/20" />
                 </div>
               )}
-              
               <div className="absolute top-4 right-4 flex gap-2">
                 <button
                   onClick={() => handleToggleWidget(widget)}
@@ -142,6 +141,12 @@ export function Dashboard({
                   {loadingWidgets[widget.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                   {widget.status}
                 </button>
+                {widget.startup_scripts && widget.startup_scripts.length > 0 && (
+                  <div className="bg-[#2c2c2c]/80 backdrop-blur-md text-[9px] font-black text-white/60 px-2 py-1 rounded-full border border-white/5 uppercase tracking-tighter flex items-center gap-1 shadow-sm" title={`Initialization scripts: ${widget.startup_scripts.join(', ')}`}>
+                    <Terminal className="w-2.5 h-2.5" />
+                    Init Script
+                  </div>
+                )}
               </div>
             </div>
             <h3 className="text-xl font-bold mb-2">{widget.name}</h3>

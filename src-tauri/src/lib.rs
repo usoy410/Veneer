@@ -272,6 +272,93 @@ async fn update_widget_geometry(
     .map_err(|e| e.to_string())?
 }
 
+#[derive(serde::Deserialize)]
+struct ClassStyle {
+    class: String,
+    font_size: i32,
+    color: String,
+}
+
+#[tauri::command]
+async fn update_widget_appearance(
+    yuck_path: String,
+    scss_path: Option<String>,
+    styles: Vec<ClassStyle>,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let yuck_file = PathBuf::from(&yuck_path);
+        if !yuck_file.exists() {
+            return Err(format!("Yuck file not found: {:?}", yuck_path));
+        }
+
+        // Determine SCSS path if not provided
+        let scss_file = if let Some(path) = scss_path {
+            PathBuf::from(path)
+        } else {
+            yuck_file.parent().unwrap().join("style.scss")
+        };
+
+        let mut scss_content = if scss_file.exists() {
+            fs::read_to_string(&scss_file).map_err(|e| e.to_string())?
+        } else {
+            String::new()
+        };
+
+        let mut rules = Vec::new();
+        for style in styles {
+            rules.push(format!(
+                ".{} {{ font-size: {}px; color: {}; }}",
+                style.class, style.font_size, style.color
+            ));
+        }
+
+        let custom_block = format!(
+            "/* VENEER_CUSTOM_STYLES */\n{}\n/* END_VENEER_CUSTOM_STYLES */",
+            rules.join("\n")
+        );
+
+        let re_block = regex::Regex::new(r"(?s)/\* VENEER_CUSTOM_STYLES \*/.*?/\* END_VENEER_CUSTOM_STYLES \*/").unwrap();
+        
+        if re_block.is_match(&scss_content) {
+            scss_content = re_block.replace(&scss_content, &custom_block).to_string();
+        } else {
+            if !scss_content.is_empty() && !scss_content.ends_with('\n') {
+                scss_content.push('\n');
+            }
+            scss_content.push_str(&custom_block);
+        }
+
+        fs::write(&scss_file, scss_content).map_err(|e| e.to_string())?;
+
+        // Reload eww
+        let _ = Command::new("eww")
+            .args(["--config", &get_eww_config_path(), "reload"])
+            .status();
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+// Command to scan a yuck file for all unique class names
+#[tauri::command]
+async fn get_widget_classes(yuck_path: String) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let content = fs::read_to_string(yuck_path).map_err(|e| e.to_string())?;
+        let re_class = regex::Regex::new(r#":class\s+"([^"]+)""#).unwrap();
+        let mut classes: Vec<String> = re_class
+            .captures_iter(&content)
+            .map(|c| c[1].to_string())
+            .collect();
+        classes.sort();
+        classes.dedup();
+        Ok(classes)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[derive(serde::Serialize)]
 struct WidgetInfo {
     id: String,
@@ -286,6 +373,13 @@ struct WidgetInfo {
     windows: Vec<String>,
     preview: Option<String>,
     is_community: bool,
+    startup_scripts: Vec<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct WidgetMetadata {
+    #[serde(default)]
+    startup_scripts: Vec<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -607,8 +701,38 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                         let is_active = windows.iter().any(|w| active_wins.contains(w));
                         let status = if is_active { "active".to_string() } else { "inactive".to_string() };
 
-                        // Check for community metadata
-                        let is_community = path.join("veneer.metadata.json").exists();
+                        // Check for community metadata and startup scripts
+                        let metadata_path = path.join("veneer.metadata.json");
+                        let mut startup_scripts = Vec::new();
+                        let is_community = metadata_path.exists();
+
+                        if metadata_path.exists() {
+                            if let Ok(meta_content) = fs::read_to_string(&metadata_path) {
+                                if let Ok(metadata) = serde_json::from_str::<WidgetMetadata>(&meta_content) {
+                                    startup_scripts.extend(metadata.startup_scripts);
+                                }
+                            }
+                        }
+
+                        // Heuristic: If no startup scripts explicitly defined, look for .sh in defpoll
+                        if startup_scripts.is_empty() {
+                            let re_defpoll_block = regex::Regex::new(r#"(?s)\(defpoll\s+.*?\)"#).unwrap();
+                            let re_sh = regex::Regex::new(r#"[^\s'"`]+\.sh\b"#).unwrap();
+                            
+                            let mut detected_scripts = std::collections::HashSet::new();
+                            for y_path in &yuck_files {
+                                if let Ok(y_content) = fs::read_to_string(y_path) {
+                                    for block_cap in re_defpoll_block.captures_iter(&y_content) {
+                                        let block = &block_cap[0];
+                                        for sh_cap in re_sh.captures_iter(block) {
+                                            let sh_path = &sh_cap[0];
+                                            detected_scripts.insert(sh_path.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                            startup_scripts.extend(detected_scripts);
+                        }
 
                         widgets.push(WidgetInfo {
                             id: name.clone(),
@@ -623,6 +747,7 @@ async fn scan_widgets(app_handle: tauri::AppHandle) -> Result<Vec<WidgetInfo>, S
                             windows,
                             preview,
                             is_community,
+                            startup_scripts,
                         });
                     }
                 }
@@ -1034,6 +1159,7 @@ pub fn run() {
                     let _ = window.hide();
                 }
             }
+            
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
@@ -1045,6 +1171,7 @@ pub fn run() {
             install_widget,
             install_font,
             update_widget_geometry,
+            update_widget_appearance,
             scan_widgets,
             reload_eww,
             restart_eww,
@@ -1065,10 +1192,48 @@ pub fn run() {
             sync_and_restart_eww,
             get_distro_info,
             save_active_widgets,
-            load_active_widgets
+            load_active_widgets,
+            execute_startup_scripts,
+            get_widget_classes
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+async fn execute_startup_scripts(app_handle: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Ok(widgets) = tauri::async_runtime::block_on(scan_widgets(app_handle)) {
+            for widget in widgets {
+                for script_rel_path in widget.startup_scripts {
+                    let widget_path = Path::new(&widget.path);
+                    
+                    let script_path = if script_rel_path.starts_with('/') {
+                        PathBuf::from(&script_rel_path)
+                    } else if script_rel_path.starts_with('~') {
+                        let home = std::env::var("HOME").unwrap_or_default();
+                        PathBuf::from(script_rel_path.replace('~', &home))
+                    } else {
+                        let clean_rel = script_rel_path.trim_start_matches("./");
+                        widget_path.join(clean_rel)
+                    };
+
+                    if script_path.exists() {
+                        println!("Executing startup script for {}: {:?}", widget.name, script_path);
+                        let _ = Command::new("chmod")
+                            .arg("+x")
+                            .arg(&script_path)
+                            .status();
+                            
+                        let _ = Command::new("bash")
+                            .arg(script_path)
+                            .spawn();
+                    }
+                }
+            }
+        }
+    });
+    Ok(())
 }
 #[tauri::command]
 async fn delete_widget(widget_name: String) -> Result<(), String> {
