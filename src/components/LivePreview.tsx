@@ -60,12 +60,12 @@ export function LivePreview({
         )}
 
         {/* Grid overlay for aesthetic */}
-        <div 
+        <div
           className="absolute inset-0 pointer-events-none opacity-10"
           style={{
             backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.2) 1px, transparent 1px),
                               linear-gradient(to bottom, rgba(255,255,255,0.2) 1px, transparent 1px)`,
-            backgroundSize: `${100/12}% ${100/12}%`
+            backgroundSize: `${100 / 12}% ${100 / 12}%`
           }}
         />
       </div>
