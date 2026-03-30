@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Code, ChevronDown, ChevronUp, LayoutGrid } from "lucide-react";
+import { RefreshCw, Code, ChevronDown, ChevronUp, LayoutGrid, Move, Layers, Maximize, Minimize, Plus, Minus } from "lucide-react";
 import { GlassCard } from "./GlassCard";
 import { LivePreview } from "./LivePreview";
 import { cn } from "../lib/utils";
@@ -17,6 +17,51 @@ export interface CustomizerProps {
   liveUpdate: boolean;
   monitorSize: { width: number; height: number };
 }
+
+const NumberStepper = ({
+  label,
+  value,
+  onChange,
+  icon: Icon,
+  unit = "PX"
+}: {
+  label: string,
+  value: number,
+  onChange: (val: number) => void,
+  icon: any,
+  unit?: string
+}) => (
+  <div className="space-y-1.5">
+    <div className="flex justify-between items-center px-1">
+      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest flex items-center gap-1.5 leading-none">
+        <Icon className="w-2.5 h-2.5" /> {label}
+      </label>
+      <span className="text-[9px] font-black text-white/5 uppercase select-none pointer-events-none">{unit}</span>
+    </div>
+    <div className="relative group flex items-center bg-[#121212] border border-[#2c2c2c] rounded-lg overflow-hidden focus-within:border-blue-600 transition-all h-[40px]">
+      <button
+        onClick={() => onChange(value - 1)}
+        className="absolute left-1 z-10 h-8 w-8 flex items-center justify-center hover:bg-white/5 active:bg-white/10 rounded-md transition-colors"
+        title="Decrease"
+      >
+        <Minus className="w-3.5 h-3.5 text-white/40 group-hover:text-white" />
+      </button>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(parseInt(e.target.value) || 0)}
+        className="w-full bg-transparent px-10 py-1 text-sm font-bold text-blue-100 outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      <button
+        onClick={() => onChange(value + 1)}
+        className="absolute right-1 z-10 h-8 w-8 flex items-center justify-center hover:bg-white/5 active:bg-white/10 rounded-md transition-colors"
+        title="Increase"
+      >
+        <Plus className="w-3.5 h-3.5 text-white/40 group-hover:text-white" />
+      </button>
+    </div>
+  </div>
+);
 
 export function Customizer({
   widgets,
@@ -288,14 +333,100 @@ export function Customizer({
         </div>
       </GlassCard>
 
-            <div className="lg:col-span-2 space-y-6">
-              <LivePreview
-                selectedWidget={selectedWidget}
-                monitorSize={monitorSize}
-                isSavingGeometry={isSavingGeometry}
-                onSaveGeometry={saveGeometry}
-                liveUpdate={liveUpdate}
-              />
+      <AnimatePresence mode="wait">
+        {activeMode === 'visual' ? (
+          <motion.div
+            key="visual-mode"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="w-full"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-1 space-y-6">
+                <GlassCard className="flex flex-col h-full bg-[#18181b]/50">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                      <Move className="w-4 h-4" />
+                      Geometry Settings
+                    </h3>
+                    <button
+                      onClick={resetGeometry}
+                      className="text-[10px] font-black uppercase text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  <div className="space-y-6 flex-1">
+                    <div className="grid grid-cols-2 gap-4">
+                      <NumberStepper
+                        label="X Position"
+                        value={selectedWidget?.geometry.x || 0}
+                        onChange={(val) => selectedWidget && updateGeometry(selectedWidget, 'x', val)}
+                        icon={Move}
+                      />
+                      <NumberStepper
+                        label="Y Position"
+                        value={selectedWidget?.geometry.y || 0}
+                        onChange={(val) => selectedWidget && updateGeometry(selectedWidget, 'y', val)}
+                        icon={Move}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <NumberStepper
+                        label="Width"
+                        value={selectedWidget?.geometry.width || 0}
+                        onChange={(val) => selectedWidget && updateGeometry(selectedWidget, 'width', val)}
+                        icon={Maximize}
+                      />
+                      <NumberStepper
+                        label="Height"
+                        value={selectedWidget?.geometry.height || 0}
+                        onChange={(val) => selectedWidget && updateGeometry(selectedWidget, 'height', val)}
+                        icon={Minimize}
+                      />
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <label className="text-[10px] font-bold text-white/20 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                        <Layers className="w-2.5 h-2.5" /> Stacking Layer
+                      </label>
+                      <div className="flex bg-[#121212] rounded-xl p-1 border border-[#2c2c2c] h-[52px]">
+                        <button
+                          onClick={() => selectedWidget && updateGeometry(selectedWidget, 'stacking', 'bg')}
+                          className={cn(
+                            "flex-1 rounded-lg text-[10px] font-black transition-all flex items-center justify-center gap-2",
+                            selectedWidget?.geometry.stacking === 'bg' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white"
+                          )}
+                        >
+                          BACKGROUND
+                        </button>
+                        <button
+                          onClick={() => selectedWidget && updateGeometry(selectedWidget, 'stacking', 'fg')}
+                          className={cn(
+                            "flex-1 rounded-lg text-[10px] font-black transition-all flex items-center justify-center gap-2",
+                            selectedWidget?.geometry.stacking === 'fg' ? "bg-blue-600 text-white shadow-lg" : "text-white/40 hover:text-white"
+                          )}
+                        >
+                          FOREGROUND
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              </div>
+
+              <div className="lg:col-span-2 space-y-6">
+                <LivePreview
+                  selectedWidget={selectedWidget}
+                  monitorSize={monitorSize}
+                  isSavingGeometry={isSavingGeometry}
+                  onSaveGeometry={saveGeometry}
+                  liveUpdate={liveUpdate}
+                />
+              </div>
             </div>
           </motion.div>
         ) : (
