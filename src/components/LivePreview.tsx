@@ -29,9 +29,10 @@ export function LivePreview({
           <button
             onClick={onSaveGeometry}
             disabled={isSavingGeometry}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-50 h-9 shadow-lg border border-transparent"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-gray-300 border border-transparent px-4 py-1.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
+          // className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-50 h-9 shadow-lg border border-transparent"
           >
-            {isSavingGeometry ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            {isSavingGeometry ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Save Geometry
           </button>
         ) : (

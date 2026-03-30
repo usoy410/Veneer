@@ -288,101 +288,6 @@ export function Customizer({
         </div>
       </GlassCard>
 
-      <AnimatePresence mode="wait">
-        {activeMode === 'visual' ? (
-          <motion.div
-            key="visual-mode"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-8"
-          >
-            <div className="lg:col-span-1">
-              {selectedWidget && (
-                <GlassCard className="h-full flex flex-col">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Geometry</h3>
-                    <button
-                      onClick={resetGeometry}
-                      className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      Reset
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 flex-1">
-                    {(['x', 'y', 'width', 'height'] as const).map(key => (
-                      <div key={key}>
-                        <div className="flex justify-between text-xs font-bold mb-2 uppercase tracking-widest italic opacity-60">
-                          <span>{key}</span>
-                          <span className="text-blue-400">{selectedWidget.geometry[key]}px</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max={key === 'x' || key === 'width' ? monitorSize.width : monitorSize.height}
-                          value={selectedWidget.geometry[key]}
-                          onChange={(e) => updateGeometry(selectedWidget, key, parseInt(e.target.value))}
-                          className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                        />
-                      </div>
-                    ))}
-
-                    <div className="pt-4 border-t border-white/5">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-3 block">
-                        Stacking Mode
-                      </label>
-                      <div className="flex bg-[#121212] rounded-xl p-1 border border-[#2c2c2c]">
-                        <button
-                          onClick={() => updateGeometry(selectedWidget, 'stacking', 'fg')}
-                          className={cn(
-                            "flex-1 py-2 rounded-lg text-[10px] font-black transition-all",
-                            selectedWidget.geometry.stacking === 'fg'
-                              ? "bg-blue-600 text-white shadow-lg"
-                              : "text-white/40 hover:text-white"
-                          )}
-                        >
-                          FOREGROUND (FG)
-                        </button>
-                        <button
-                          onClick={() => updateGeometry(selectedWidget, 'stacking', 'bg')}
-                          className={cn(
-                            "flex-1 py-2 rounded-lg text-[10px] font-black transition-all",
-                            selectedWidget.geometry.stacking === 'bg'
-                              ? "bg-blue-600 text-white shadow-lg"
-                              : "text-white/40 hover:text-white"
-                          )}
-                        >
-                          BACKGROUND (BG)
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* <button
-                    onClick={saveGeometry}
-                    disabled={isSavingGeometry}
-                    className={cn(
-                      "w-full py-4 rounded-xl font-black mt-8 transition-all active:scale-[0.98] flex items-center justify-center gap-2 border uppercase tracking-widest text-[11px]",
-                      isSavingGeometry 
-                        ? "bg-white/5 border-white/5 text-white/20" 
-                        : "bg-blue-600 text-white border-transparent shadow-[0_10px_20px_rgba(37,99,235,0.2)] hover:shadow-[0_15px_30px_rgba(37,99,235,0.3)] hover:-translate-y-0.5"
-                    )}
-                  >
-                    {isSavingGeometry ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4" />
-                        Apply Changes
-                      </>
-                    )}
-                  </button> */}
-                </GlassCard>
-              )}
-            </div>
-
             <div className="lg:col-span-2 space-y-6">
               <LivePreview
                 selectedWidget={selectedWidget}
@@ -437,9 +342,36 @@ export function Customizer({
                     )}
                   </div>
                 </div>
-                <div className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
+                {/* <div className="flex justify-end"> */}
+                <button
+                  onClick={
+                    editorTab === 'yuck' ? saveYuck :
+                      editorTab === 'scss' ? saveScss :
+                        saveVariables
+                  }
+                  disabled={
+                    editorTab === 'yuck' ? isSavingYuck :
+                      editorTab === 'scss' ? isSavingScss :
+                        isSavingVariables
+                  }
+                  // className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-50 h-9 shadow-lg border border-transparent"
+
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-gray-300 border border-transparent px-4 py-1.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {(editorTab === 'yuck' ? isSavingYuck : editorTab === 'scss' ? isSavingScss : isSavingVariables) ?
+                    <RefreshCw className="w-4 h-4 animate-spin" /> :
+                    <Code className="w-4 h-4" />
+                  }
+                  Save {
+                    editorTab === 'yuck' ? 'Source' :
+                      editorTab === 'scss' ? 'Styles' :
+                        'Variables'
+                  }
+                </button>
+                {/* </div> */}
+                {/* <div className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
                   {editorTab.toUpperCase()}
-                </div>
+                </div> */}
               </div>
               <div className="flex-1 relative font-mono">
                 <textarea
@@ -457,31 +389,7 @@ export function Customizer({
                   }
                 />
               </div>
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={
-                    editorTab === 'yuck' ? saveYuck :
-                      editorTab === 'scss' ? saveScss :
-                        saveVariables
-                  }
-                  disabled={
-                    editorTab === 'yuck' ? isSavingYuck :
-                      editorTab === 'scss' ? isSavingScss :
-                        isSavingVariables
-                  }
-                  className="flex items-center gap-2 bg-[#2c2c2c] hover:bg-[#3d3d3d] text-gray-300 border border-transparent px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {(editorTab === 'yuck' ? isSavingYuck : editorTab === 'scss' ? isSavingScss : isSavingVariables) ?
-                    <RefreshCw className="w-4 h-4 animate-spin" /> :
-                    <Code className="w-4 h-4" />
-                  }
-                  Save {
-                    editorTab === 'yuck' ? 'Source' :
-                      editorTab === 'scss' ? 'Styles' :
-                        'Variables'
-                  }
-                </button>
-              </div>
+
             </GlassCard>
           </motion.div>
         )}
