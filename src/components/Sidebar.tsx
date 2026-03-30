@@ -16,9 +16,9 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
   return (
     <div className="w-64 h-screen bg-[#121212] border-r border-[#2c2c2c] flex flex-col p-4 shadow-sm z-10">
-      <div className="flex items-center gap-3 px-2 mb-8 mt-4">
-        <img src="/logo.png" alt="Veneer" className="w-8 h-8 rounded-lg shadow-sm object-cover" />
-        <span className="font-bold text-lg tracking-tight text-white">Veneer</span>
+      <div className="flex items-center gap-1 mb-8 mt-4">
+        <img src="/logo.png" alt="Veneer" className="w-20 h-20 rounded-lg shadow-sm object-cover" />
+        <span className="font-bold text-3xl tracking-tight text-white">Veneer</span>
       </div>
 
       <nav className="flex-1 space-y-2">

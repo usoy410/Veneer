@@ -23,6 +23,22 @@ export function LivePreview({
     <GlassCard className="flex flex-col">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Live Preview</h3>
+        {!liveUpdate ? (
+          <button
+            onClick={onSaveGeometry}
+            disabled={isSavingGeometry}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-gray-300 border border-transparent px-4 py-1.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
+          // className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-50 h-9 shadow-lg border border-transparent"
+          >
+            {isSavingGeometry ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Save Geometry
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 bg-orange-500/10 text-orange-400 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase h-9 border border-orange-500/20 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+            Live Update ON
+          </div>
+        )}
       </div>
       <div
         ref={constraintsRef}

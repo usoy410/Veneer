@@ -175,64 +175,112 @@ export function Customizer({
           )}
         </div>
 
-        <div className="lg:col-span-2 space-y-6">
-          <LivePreview
-            selectedWidget={selectedWidget}
-            monitorSize={monitorSize}
-            isSavingGeometry={isSavingGeometry}
-            onSaveGeometry={saveGeometry}
-          />
-
-          <GlassCard className="flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-4">
-                <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Direct Edit</h3>
-                <div className="flex bg-[#121212] rounded-lg p-1 border border-[#2c2c2c]">
-                  <button 
-                    onClick={() => setEditorTab('yuck')}
-                    className={cn(
-                      "px-3 py-1 rounded-md text-[10px] font-black transition-all",
-                      editorTab === 'yuck' ? "bg-[#2563eb] text-white shadow-sm" : "text-gray-400 hover:text-white"
-                    )}
-                  >
-                    .YUCK
-                  </button>
-                  <button 
-                    onClick={() => setEditorTab('scss')}
-                    className={cn(
-                      "px-3 py-1 rounded-md text-[10px] font-black transition-all",
-                      editorTab === 'scss' ? "bg-[#2563eb] text-white shadow-sm" : "text-gray-400 hover:text-white"
-                    )}
-                  >
-                    .SCSS
-                  </button>
-                </div>
-              </div>
-              <div className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
-                Direct Edit
-              </div>
-            </div>
-            <div className="flex-1 min-h-[300px] relative font-mono">
-              <textarea
-                value={editorTab === 'yuck' ? yuckContent : scssContent}
-                onChange={(e) => editorTab === 'yuck' ? setYuckContent(e.target.value) : setScssContent(e.target.value)}
-                className="w-full h-full min-h-[300px] bg-[#121212] border border-[#2c2c2c] rounded-xl p-4 text-sm text-blue-100/80 outline-none focus:border-blue-600 transition-all resize-none custom-scrollbar"
-                placeholder={editorTab === 'yuck' ? "; Widget code goes here..." : "// Styles go here..."}
+            <div className="lg:col-span-2 space-y-6">
+              <LivePreview
+                selectedWidget={selectedWidget}
+                monitorSize={monitorSize}
+                isSavingGeometry={isSavingGeometry}
+                onSaveGeometry={saveGeometry}
+                liveUpdate={liveUpdate}
               />
             </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={editorTab === 'yuck' ? saveYuck : saveScss}
-                disabled={editorTab === 'yuck' ? isSavingYuck : isSavingScss}
-                className="flex items-center gap-2 bg-[#2c2c2c] hover:bg-[#3d3d3d] text-gray-300 border border-transparent px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
-              >
-                { (editorTab === 'yuck' ? isSavingYuck : isSavingScss) ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Code className="w-4 h-4" />}
-                Save {editorTab === 'yuck' ? 'Source' : 'Styles'}
-              </button>
-            </div>
-          </GlassCard>
-        </div>
-      </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="manual-mode"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="w-full"
+          >
+            <GlassCard className="flex flex-col min-h-[600px]">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-sm font-bold text-white/40 uppercase tracking-widest">Source Editor</h3>
+                  <div className="flex bg-[#121212] rounded-lg p-1 border border-[#2c2c2c]">
+                    <button
+                      onClick={() => setEditorTab('yuck')}
+                      className={cn(
+                        "px-3 py-1 rounded-md text-[10px] font-black transition-all",
+                        editorTab === 'yuck' ? "bg-[#2563eb] text-white shadow-sm" : "text-gray-400 hover:text-white"
+                      )}
+                    >
+                      .YUCK
+                    </button>
+                    <button
+                      onClick={() => setEditorTab('scss')}
+                      className={cn(
+                        "px-3 py-1 rounded-md text-[10px] font-black transition-all",
+                        editorTab === 'scss' ? "bg-[#2563eb] text-white shadow-sm" : "text-gray-400 hover:text-white"
+                      )}
+                    >
+                      .SCSS
+                    </button>
+                    {selectedWidget?.variables_path && (
+                      <button
+                        onClick={() => setEditorTab('variables')}
+                        className={cn(
+                          "px-3 py-1 rounded-md text-[10px] font-black transition-all",
+                          editorTab === 'variables' ? "bg-[#2563eb] text-white shadow-sm" : "text-gray-400 hover:text-white"
+                        )}
+                      >
+                        VARS
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {/* <div className="flex justify-end"> */}
+                <button
+                  onClick={
+                    editorTab === 'yuck' ? saveYuck :
+                      editorTab === 'scss' ? saveScss :
+                        saveVariables
+                  }
+                  disabled={
+                    editorTab === 'yuck' ? isSavingYuck :
+                      editorTab === 'scss' ? isSavingScss :
+                        isSavingVariables
+                  }
+                  // className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-50 h-9 shadow-lg border border-transparent"
+
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-gray-300 border border-transparent px-4 py-1.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {(editorTab === 'yuck' ? isSavingYuck : editorTab === 'scss' ? isSavingScss : isSavingVariables) ?
+                    <RefreshCw className="w-4 h-4 animate-spin" /> :
+                    <Code className="w-4 h-4" />
+                  }
+                  Save {
+                    editorTab === 'yuck' ? 'Source' :
+                      editorTab === 'scss' ? 'Styles' :
+                        'Variables'
+                  }
+                </button>
+                {/* </div> */}
+                {/* <div className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
+                  {editorTab.toUpperCase()}
+                </div> */}
+              </div>
+              <div className="flex-1 relative font-mono">
+                <textarea
+                  value={editorTab === 'yuck' ? yuckContent : editorTab === 'scss' ? scssContent : variablesContent}
+                  onChange={(e) => {
+                    if (editorTab === 'yuck') setYuckContent(e.target.value);
+                    else if (editorTab === 'scss') setScssContent(e.target.value);
+                    else setVariablesContent(e.target.value);
+                  }}
+                  className="w-full h-full min-h-[500px] bg-[#121212] border border-[#2c2c2c] rounded-xl p-4 text-sm text-blue-100/80 outline-none focus:border-blue-600 transition-all resize-none custom-scrollbar"
+                  placeholder={
+                    editorTab === 'yuck' ? "; Widget code goes here..." :
+                      editorTab === 'scss' ? "// Styles go here..." :
+                        ";; Variables, polls, and listeners go here..."
+                  }
+                />
+              </div>
+
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
