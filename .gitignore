@@ -24,3 +24,9 @@ src-tauri/target
 *.njsproj
 *.sln
 *.sw?
+dist/assets/index-D4YtxtEM.css
+dist/assets/index-KIVO99lz.js
+dist/index.html
+dist/logo.png
+dist/tauri.svg
+dist/vite.svg
