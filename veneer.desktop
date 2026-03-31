@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Veneer
-Comment=Premium Widget Manager for Eww
+Comment=Widget Manager for Eww
 Exec=veneer
 Icon=veneer
 Terminal=false
