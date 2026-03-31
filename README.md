@@ -62,7 +62,8 @@ Have a beautiful widget you want to share with others?
 
 You can download the latest pre-compiled packages (`.deb`, `.tar.gz`, etc.) for Linux from the [Releases](https://github.com/usoy410/Veneer/releases/latest) page.
 
-- **Debian/Ubuntu**: `sudo dpkg -i veneer_0.1.0_amd64.deb`
+- **Debian/Ubuntu**: `sudo dpkg -i Veneer_0.1.2_amd64.deb`
+- **Fedora**: `sudo dnf install Veneer-0.1.2-1.x86_64.rpm`
 - **Arch Linux**: Available on the [AUR](https://aur.archlinux.org/packages/veneer) as `veneer`. Install it using an AUR helper:
   ```bash
   yay -S veneer
