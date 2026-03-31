@@ -63,7 +63,10 @@ Have a beautiful widget you want to share with others?
 You can download the latest pre-compiled packages (`.deb`, `.tar.gz`, etc.) for Linux from the [Releases](https://github.com/usoy410/Veneer/releases/latest) page.
 
 - **Debian/Ubuntu**: `sudo dpkg -i veneer_0.1.0_amd64.deb`
-- **Arch Linux**: Can be built using the provided `PKGBUILD` in the repository or from the release assets.
+- **Arch Linux**: Available on the [AUR](https://aur.archlinux.org/packages/veneer) as `veneer`. Install it using an AUR helper:
+  ```bash
+  yay -S veneer
+  ```
 
 ## Development
 
@@ -78,6 +81,12 @@ To build Veneer from source:
    ```bash
    npm run tauri dev
    ```
+
+4. Build for production:
+   ```bash
+   npm run tauri build
+   ```
+   The built artifacts (e.g., `.deb`, `AppImage`, or binaries) can be found in `src-tauri/target/release/bundle/`.
 
 ## Tech Stack
 
