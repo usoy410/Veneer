@@ -33,19 +33,18 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev libayatana-appindicator3-dev
 
       - name: Install frontend dependencies
-        run: npm install # change this to npm, pnpm or yarn depending on your project
+        run: npm install
 
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }} # This pulls the tag name from the ref
-          releaseName: 'Veneer v__VERSION__' # tauri-action will replace __VERSION__ with the version from tauri.conf.json
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Veneer v__VERSION__'
           releaseBody: 'See the assets below to download the latest version of Veneer.'
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.platform == 'ubuntu-22.04' && '--bundle deb,rpm,appimage' || '' }}
