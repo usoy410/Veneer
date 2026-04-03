@@ -49,7 +49,7 @@ jobs:
           releaseBody: 'See the assets below to download the latest version of Veneer.'
           releaseDraft: true
           prerelease: false
-          args: '--bundle deb,rpm,appimage'
+          args: '--bundles deb,rpm,appimage'
 
       - name: Create and Upload Portable Archive (.tar.gz)
         env:
