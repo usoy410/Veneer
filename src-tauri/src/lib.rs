@@ -4,6 +4,7 @@ use std::process::Command;
 use tauri;
 use tempfile::Builder;
 
+// check if eww is installed
 #[tauri::command]
 async fn check_eww() -> bool {
     tauri::async_runtime::spawn_blocking(|| {
@@ -16,7 +17,7 @@ async fn check_eww() -> bool {
     .await
     .unwrap_or(false)
 }
-
+// get the path to config of eww
 #[tauri::command]
 fn get_eww_config_path() -> String {
     let home = std::env::var("HOME").unwrap_or_default();
@@ -26,6 +27,7 @@ fn get_eww_config_path() -> String {
     path
 }
 
+// get the distro info for suggestion of eww installation
 #[tauri::command]
 fn get_distro_info() -> String {
     let os_release = fs::read_to_string("/etc/os-release").unwrap_or_default();
@@ -41,7 +43,7 @@ fn get_distro_info() -> String {
         "generic".to_string()
     }
 }
-
+// execute the eww config
 #[tauri::command]
 async fn run_eww_command(args: Vec<String>) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -64,6 +66,7 @@ async fn run_eww_command(args: Vec<String>) -> Result<String, String> {
     .map_err(|e| e.to_string())?
 }
 
+// for installlation of widget from community and will move the downloaded config of the specific config
 #[tauri::command]
 async fn install_widget(name: String, yuck_content: String, scss_content: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -86,6 +89,7 @@ async fn install_widget(name: String, yuck_content: String, scss_content: String
     .map_err(|e| e.to_string())?
 }
 
+// creation of the main eww.yuck and eww.scss and importing the downladed config in it.
 fn update_main_configs(widget_name: &str) -> Result<(), String> {
     let config_path = PathBuf::from(get_eww_config_path());
     let main_yuck = config_path.join("eww.yuck");
@@ -99,6 +103,7 @@ fn update_main_configs(widget_name: &str) -> Result<(), String> {
         fs::write(&main_scss, "// Eww Main SCSS\n").map_err(|e| e.to_string())?;
     }
 
+    // import the downloaded eww config in the main eww.yuck and scss
     let mut yuck = fs::read_to_string(&main_yuck).unwrap_or_default();
     let include_line = format!(
         "(include \"./widgets/{}/{}.yuck\")",
@@ -223,7 +228,7 @@ fn link_scss(
 
     Ok(())
 }
-
+// for configuration of the widget in app on its location x ,y,width, height
 #[tauri::command]
 async fn update_widget_geometry(
     yuck_path: String,
@@ -1089,6 +1094,14 @@ pub fn run() {
     builder
         .setup(move |app| {
             if is_hidden {
+                let handle = app.handle().clone();
+                // If running hidden, we are just a helper to setup eww.
+                // Exit after 15 seconds to ensure redundancy is minimized.
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(15));
+                    handle.exit(0);
+                });
+
                 use tauri::Manager;
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
@@ -1096,6 +1109,12 @@ pub fn run() {
             }
             
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                // Ensure the app fully stops when the main window is closed
+                window.app_handle().exit(0);
+            }
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
